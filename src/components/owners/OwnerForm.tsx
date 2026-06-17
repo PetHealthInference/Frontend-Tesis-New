@@ -142,7 +142,7 @@ export function OwnerForm({ owner, mode, isSaving, error, onCancel, onSubmit }: 
             helpText="Ingresa la direccion completa."
             label="Direccion"
             onChange={(event) => updateField("address", event.target.value)}
-            placeholder="Ej. Av. San Juan 479, San Luis, Lima"
+            placeholder="Ej. Av. Siempreviva 742"
             required
             value={values.address}
           />
