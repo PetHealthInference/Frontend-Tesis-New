@@ -19,6 +19,11 @@ export const evaluationService = {
     return data;
   },
 
+  async list() {
+    const { data } = await api.get<Evaluation[]>("/api/v1/evaluations");
+    return data;
+  },
+
   async listByPatient(patientId: number) {
     const { data } = await api.get<Evaluation[]>(`/api/v1/patients/${patientId}/evaluations`);
     return data;

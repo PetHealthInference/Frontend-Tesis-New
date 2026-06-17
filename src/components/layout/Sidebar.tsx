@@ -1,14 +1,33 @@
 import { ChevronDown, PawPrint, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { routes } from "../../config/routes";
+import type { User } from "../../types/user";
 import { cn } from "../../utils/cn";
 
 type SidebarProps = {
+  currentUser: User | null;
   isOpen: boolean;
   onClose: () => void;
 };
 
-export function Sidebar({ isOpen, onClose }: SidebarProps) {
+function formatRole(role?: string) {
+  if (!role) {
+    return "Usuario";
+  }
+
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function getInitials(fullName?: string) {
+  const parts = fullName?.trim().split(/\s+/).filter(Boolean) ?? [];
+  const initials = parts.slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
+  return initials || "U";
+}
+
+export function Sidebar({ currentUser, isOpen, onClose }: SidebarProps) {
+  const fullName = currentUser?.full_name ?? "Usuario autenticado";
+  const roleName = formatRole(currentUser?.role?.name);
+
   return (
     <>
       <div
@@ -62,12 +81,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         <div className="border-t border-white/10 p-5">
           <button className="flex w-full items-center gap-4 rounded-lg p-3 text-left transition hover:bg-white/10">
-            <span className="grid h-14 w-14 place-items-center rounded-full bg-white text-slate-300">
-              <span className="h-8 w-8 rounded-full bg-slate-200" />
+            <span className="grid h-14 w-14 place-items-center rounded-full bg-white text-sm font-extrabold text-[#3026A6]">
+              {getInitials(fullName)}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-bold">Dr. Juan Perez</span>
-              <span className="block text-sm text-white/72">Veterinario</span>
+              <span className="block truncate font-bold">{fullName}</span>
+              <span className="block text-sm text-white/72">{roleName}</span>
             </span>
             <ChevronDown size={18} />
           </button>
