@@ -1,0 +1,31 @@
+import type { SelectHTMLAttributes } from "react";
+import { cn } from "../../utils/cn";
+
+type FormSelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
+  label: string;
+  error?: string;
+  helpText?: string;
+};
+
+export function FormSelect({ label, error, helpText, className, required, children, ...props }: FormSelectProps) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-bold text-slate-700">
+        {label} {required ? <span className="text-red-500">*</span> : null}
+      </span>
+      <select
+        className={cn(
+          "h-12 w-full rounded-lg border bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-[#4635D3] focus:ring-4 focus:ring-[#4635D3]/10 disabled:bg-slate-50 disabled:text-slate-400",
+          error ? "border-red-300" : "border-slate-200",
+          className
+        )}
+        required={required}
+        {...props}
+      >
+        {children}
+      </select>
+      {error ? <span className="mt-2 block text-xs font-semibold text-red-600">{error}</span> : null}
+      {!error && helpText ? <span className="mt-2 block text-xs font-medium text-slate-500">{helpText}</span> : null}
+    </label>
+  );
+}

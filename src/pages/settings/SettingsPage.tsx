@@ -1,0 +1,481 @@
+import {
+  AlertTriangle,
+  CheckCircle2,
+  EyeOff,
+  Lock,
+  LogOut,
+  Monitor,
+  Moon,
+  Save,
+  Settings,
+  ShieldCheck,
+  Sun,
+  UserPlus,
+  Users,
+} from "lucide-react";
+import type { FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { AlertMessage } from "../../components/common/AlertMessage";
+import { Button } from "../../components/common/Button";
+import { Card } from "../../components/common/Card";
+import { DataTable } from "../../components/common/DataTable";
+import { FormField } from "../../components/common/FormField";
+import { FormSelect } from "../../components/common/FormSelect";
+import { useAuth } from "../../hooks/useAuth";
+import { userService } from "../../services/user.service";
+import type { User, UserFormValues } from "../../types/user";
+import { cn } from "../../utils/cn";
+
+type SettingsTab = "general" | "preferences" | "security" | "users";
+
+type FormErrors = Partial<Record<keyof UserFormValues, string>>;
+
+const adminRoleId = 1;
+const veterinarianRoleId = 2;
+
+const initialUserForm: UserFormValues = {
+  full_name: "",
+  email: "",
+  password: "",
+  role_id: String(veterinarianRoleId),
+};
+
+const tabs: { id: SettingsTab; label: string; adminOnly?: boolean }[] = [
+  { id: "general", label: "General" },
+  { id: "preferences", label: "Preferencias" },
+  { id: "security", label: "Seguridad" },
+  { id: "users", label: "Usuarios", adminOnly: true },
+];
+
+function getErrorMessage(error: unknown) {
+  if (error && typeof error === "object" && "response" in error) {
+    const response = (error as { response?: { data?: { detail?: string } } }).response;
+    return response?.data?.detail ?? "No fue posible completar la accion.";
+  }
+
+  return "No fue posible completar la accion.";
+}
+
+function validateUserForm(values: UserFormValues): FormErrors {
+  const errors: FormErrors = {};
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (values.full_name.trim().length < 3) {
+    errors.full_name = "Ingresa al menos 3 caracteres.";
+  }
+
+  if (!emailPattern.test(values.email.trim())) {
+    errors.email = "Ingresa un correo valido.";
+  }
+
+  if (values.password.length < 8) {
+    errors.password = "La contrasena debe tener al menos 8 caracteres.";
+  }
+
+  if (!values.role_id) {
+    errors.role_id = "Selecciona un rol.";
+  }
+
+  return errors;
+}
+
+function roleLabel(role?: string | null) {
+  if (role === "admin") {
+    return "ADMINISTRADOR";
+  }
+
+  if (role === "veterinario") {
+    return "VETERINARIO";
+  }
+
+  if (role === "evaluador") {
+    return "EVALUADOR";
+  }
+
+  return "SIN ROL";
+}
+
+export function SettingsPage() {
+  const navigate = useNavigate();
+  const { logout, role, isAdmin, user } = useAuth();
+  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const [theme, setTheme] = useState("light");
+  const [density, setDensity] = useState("comfortable");
+  const [users, setUsers] = useState<User[]>([]);
+  const [userForm, setUserForm] = useState<UserFormValues>(initialUserForm);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const currentUser = useMemo(() => users.find((item) => item.id === user.id), [user.id, users]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadUsers() {
+      setIsLoadingUsers(true);
+      setError("");
+
+      try {
+        const data = await userService.list();
+
+        if (isMounted) {
+          setUsers(data);
+        }
+      } catch (caughtError) {
+        if (isMounted) {
+          setError(getErrorMessage(caughtError));
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingUsers(false);
+        }
+      }
+    }
+
+    loadUsers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAdmin]);
+
+  function handleLogout() {
+    logout();
+    navigate("/login", { replace: true });
+  }
+
+  async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!isAdmin) {
+      setError("No tienes permisos para crear usuarios.");
+      return;
+    }
+
+    const nextErrors = validateUserForm(userForm);
+    setFormErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+
+    setIsCreatingUser(true);
+    setError("");
+
+    try {
+      const created = await userService.create({
+        full_name: userForm.full_name.trim(),
+        email: userForm.email.trim(),
+        password: userForm.password,
+        role_id: Number(userForm.role_id),
+      });
+
+      setUsers((current) => [...current, created]);
+      setUserForm(initialUserForm);
+      setMessage("Usuario creado correctamente.");
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setIsCreatingUser(false);
+    }
+  }
+
+  function updateUserForm(field: keyof UserFormValues, value: string) {
+    setUserForm((current) => ({ ...current, [field]: value }));
+    setFormErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  return (
+    <div className="space-y-6">
+      <section>
+        <h1 className="text-3xl font-extrabold tracking-normal text-[#172554]">Configuracion del sistema</h1>
+        <p className="mt-2 text-base text-slate-500">
+          Administra preferencias, seguridad de cuenta y parametros basicos de la aplicacion clinica.
+        </p>
+      </section>
+
+      {message ? <AlertMessage message={message} onClose={() => setMessage("")} /> : null}
+      {error ? <AlertMessage message={error} tone="error" onClose={() => setError("")} /> : null}
+
+      <Card className="overflow-hidden">
+        <div className="grid grid-cols-2 md:grid-cols-4">
+          {tabs
+            .filter((tab) => !tab.adminOnly || isAdmin)
+            .map((tab) => (
+              <button
+                className={cn(
+                  "min-h-14 border-b-2 px-4 text-sm font-extrabold transition",
+                  activeTab === tab.id
+                    ? "border-[#4635D3] text-[#4635D3]"
+                    : "border-transparent text-slate-500 hover:bg-violet-50 hover:text-[#3026A6]"
+                )}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                type="button"
+              >
+                {tab.label}
+              </button>
+            ))}
+        </div>
+      </Card>
+
+      {activeTab === "general" ? (
+        <section className="grid gap-6 xl:grid-cols-[1fr_0.75fr]">
+          <Card className="p-6">
+            <div className="mb-6 flex items-center gap-4">
+              <span className="grid h-16 w-16 place-items-center rounded-full bg-violet-50 text-2xl font-extrabold text-[#4635D3]">
+                {(currentUser?.full_name ?? "Dr. Juan Perez").charAt(0)}
+              </span>
+              <div>
+                <h2 className="text-2xl font-extrabold text-[#172554]">{currentUser?.full_name ?? "Dr. Juan Perez"}</h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">{currentUser?.email ?? "Sesion autenticada"}</p>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <InfoBox label="Rol" value={roleLabel(currentUser?.role?.name ?? role)} />
+              <InfoBox label="Estado" value={currentUser?.is_active === false ? "Inactivo" : "Activo"} />
+              <InfoBox label="ID de sesion" value={user.id ? `#${user.id}` : "No disponible"} />
+            </div>
+            <Button className="mt-6" icon={<LogOut size={18} />} onClick={handleLogout} variant="danger">
+              Cerrar sesion
+            </Button>
+          </Card>
+
+          <Card className="p-6">
+            <h2 className="mb-4 flex items-center gap-3 text-xl font-extrabold text-[#172554]">
+              <Settings size={24} />
+              Informacion del sistema
+            </h2>
+            <div className="space-y-3">
+              <InfoBox label="Aplicacion" value="VetClinic" />
+              <InfoBox label="API base" value={import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"} />
+              <InfoBox label="Modulo clinico" value="Motor de inferencia IF-THEN + Bayes" />
+            </div>
+          </Card>
+        </section>
+      ) : null}
+
+      {activeTab === "preferences" ? (
+        <section className="grid gap-6 xl:grid-cols-2">
+          <Card className="p-6">
+            <h2 className="mb-5 flex items-center gap-3 text-xl font-extrabold text-[#172554]">
+              <Monitor size={24} />
+              Preferencias de interfaz
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <PreferenceButton active={theme === "light"} icon={Sun} label="Claro" onClick={() => setTheme("light")} />
+              <PreferenceButton active={theme === "dark"} icon={Moon} label="Oscuro" onClick={() => setTheme("dark")} disabled />
+              <PreferenceButton active={theme === "system"} icon={Monitor} label="Sistema" onClick={() => setTheme("system")} disabled />
+            </div>
+            <p className="mt-4 text-sm font-semibold text-slate-500">
+              El tema claro esta activo. El modo oscuro queda preparado para una siguiente etapa visual.
+            </p>
+          </Card>
+
+          <Card className="p-6">
+            <h2 className="mb-5 text-xl font-extrabold text-[#172554]">Densidad visual</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <PreferenceButton active={density === "comfortable"} icon={CheckCircle2} label="Comoda" onClick={() => setDensity("comfortable")} />
+              <PreferenceButton active={density === "compact"} icon={EyeOff} label="Compacta" onClick={() => setDensity("compact")} />
+            </div>
+          </Card>
+        </section>
+      ) : null}
+
+      {activeTab === "security" ? (
+        <section className="grid gap-6 xl:grid-cols-[0.8fr_1fr]">
+          <Card className="p-6">
+            <h2 className="mb-4 flex items-center gap-3 text-xl font-extrabold text-[#172554]">
+              <ShieldCheck size={24} />
+              Sesion activa
+            </h2>
+            <div className="space-y-3">
+              <InfoBox label="Autenticacion" value="Token JWT activo" />
+              <InfoBox label="Rol aplicado" value={roleLabel(role)} />
+              <InfoBox label="Control de acceso" value={isAdmin ? "Administrador" : "Clinico"} />
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h2 className="mb-4 flex items-center gap-3 text-xl font-extrabold text-[#172554]">
+              <Lock size={24} />
+              Cambio de contrasena
+            </h2>
+            <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm font-semibold text-amber-700">
+              El backend actual no expone un endpoint para cambio de contrasena. El flujo queda preparado para integrarse cuando
+              exista la ruta correspondiente.
+            </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <FormField disabled label="Contrasena actual" placeholder="No disponible" type="password" />
+              <FormField disabled label="Nueva contrasena" placeholder="No disponible" type="password" />
+            </div>
+          </Card>
+        </section>
+      ) : null}
+
+      {activeTab === "users" && isAdmin ? (
+        <section className="grid gap-6 xl:grid-cols-[0.72fr_1fr]">
+          <Card className="p-6">
+            <h2 className="mb-5 flex items-center gap-3 text-xl font-extrabold text-[#172554]">
+              <UserPlus size={24} />
+              Crear usuario
+            </h2>
+            <form className="space-y-4" onSubmit={handleCreateUser}>
+              <FormField
+                error={formErrors.full_name}
+                label="Nombre completo"
+                onChange={(event) => updateUserForm("full_name", event.target.value)}
+                placeholder="Ej. Dra. Maria Perez"
+                required
+                value={userForm.full_name}
+              />
+              <FormField
+                error={formErrors.email}
+                label="Correo electronico"
+                onChange={(event) => updateUserForm("email", event.target.value)}
+                placeholder="correo@clinica.com"
+                required
+                type="email"
+                value={userForm.email}
+              />
+              <FormField
+                error={formErrors.password}
+                label="Contrasena"
+                minLength={8}
+                onChange={(event) => updateUserForm("password", event.target.value)}
+                placeholder="Minimo 8 caracteres"
+                required
+                type="password"
+                value={userForm.password}
+              />
+              <FormSelect
+                error={formErrors.role_id}
+                label="Rol"
+                onChange={(event) => updateUserForm("role_id", event.target.value)}
+                required
+                value={userForm.role_id}
+              >
+                <option value={adminRoleId}>ADMINISTRADOR</option>
+                <option value={veterinarianRoleId}>VETERINARIO</option>
+              </FormSelect>
+              <Button disabled={isCreatingUser} icon={<Save size={18} />} type="submit">
+                {isCreatingUser ? "Creando..." : "Crear usuario"}
+              </Button>
+            </form>
+          </Card>
+
+          <Card className="p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="flex items-center gap-3 text-xl font-extrabold text-[#172554]">
+                <Users size={24} />
+                Usuarios registrados
+              </h2>
+              <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-extrabold text-[#4635D3]">
+                {users.length} usuarios
+              </span>
+            </div>
+            {isLoadingUsers ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div className="h-16 animate-pulse rounded-lg bg-slate-100" key={index} />
+                ))}
+              </div>
+            ) : users.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+                <p className="font-extrabold text-[#172554]">No hay usuarios registrados</p>
+                <p className="mt-2 text-sm text-slate-500">Crea el primer usuario clinico desde el formulario.</p>
+              </div>
+            ) : (
+              <DataTable
+                columns={["Usuario", "Correo", "Rol", "Estado", "Acciones"]}
+                rows={users}
+                renderRow={(item) => (
+                  <tr key={item.id}>
+                    <td className="px-5 py-4 font-extrabold text-slate-700">{item.full_name}</td>
+                    <td className="px-5 py-4">{item.email}</td>
+                    <td className="px-5 py-4">{roleLabel(item.role?.name)}</td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={cn(
+                          "rounded-md px-3 py-1 text-xs font-extrabold",
+                          item.is_active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                        )}
+                      >
+                        {item.is_active ? "Activo" : "Inactivo"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <Button disabled variant="secondary">
+                        Editar
+                      </Button>
+                    </td>
+                  </tr>
+                )}
+              />
+            )}
+            <div className="mt-5 flex gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-blue-700">
+              <AlertTriangle className="mt-0.5 shrink-0" size={18} />
+              Editar, activar o desactivar usuarios queda preparado; el backend actual solo expone listado y creacion.
+            </div>
+          </Card>
+        </section>
+      ) : null}
+
+      {!isAdmin && activeTab !== "users" ? (
+        <Card className="p-5">
+          <div className="flex items-start gap-3 text-sm font-semibold text-slate-500">
+            <ShieldCheck className="mt-0.5 shrink-0 text-[#4635D3]" size={20} />
+            La gestion de usuarios solo esta disponible para cuentas con rol ADMINISTRADOR.
+          </div>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
+function InfoBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+      <p className="text-sm font-bold text-slate-500">{label}</p>
+      <p className="mt-2 break-words font-extrabold text-[#172554]">{value}</p>
+    </div>
+  );
+}
+
+function PreferenceButton({
+  active,
+  disabled,
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  icon: typeof Sun;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={cn(
+        "flex min-h-24 flex-col items-center justify-center gap-3 rounded-lg border p-4 text-sm font-extrabold transition",
+        active ? "border-[#4635D3] bg-violet-50 text-[#4635D3]" : "border-slate-100 bg-white text-slate-500",
+        disabled && "opacity-55"
+      )}
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      <Icon size={24} />
+      {label}
+    </button>
+  );
+}

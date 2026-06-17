@@ -1,0 +1,27 @@
+export type LoginRequest = {
+  email: string;
+  password: string;
+};
+
+export type LoginResponse = {
+  access_token: string;
+  token_type: string;
+};
+
+export type ForgotPasswordRequest = {
+  email: string;
+};
+
+export type ForgotPasswordResponse = {
+  message?: string;
+};
+
+export type AuthState = {
+  isAuthenticated: boolean;
+  token: string | null;
+};
+
+export type AuthUser = {
+  id: number | null;
+  role: string | null;
+};

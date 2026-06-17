@@ -1,0 +1,330 @@
+import { Edit3, Mail, PawPrint, Phone, Search, Trash2, UserPlus, UsersRound } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { AlertMessage } from "../../components/common/AlertMessage";
+import { Button } from "../../components/common/Button";
+import { Card } from "../../components/common/Card";
+import { ConfirmDialog } from "../../components/common/ConfirmDialog";
+import { ownerService } from "../../services/owner.service";
+import { patientService } from "../../services/patient.service";
+import type { Owner } from "../../types/owner";
+import type { Patient } from "../../types/patient";
+import { cn } from "../../utils/cn";
+
+type FilterMode = "all" | "with-pets" | "without-pets";
+
+type LocationState = {
+  message?: string;
+};
+
+type OwnerRow = Owner & {
+  petCount: number;
+};
+
+const filters: { label: string; value: FilterMode }[] = [
+  { label: "Todos", value: "all" },
+  { label: "Con mascotas", value: "with-pets" },
+  { label: "Sin mascotas", value: "without-pets" },
+];
+
+function getFullName(owner: Owner) {
+  return [owner.first_name, owner.last_name].filter(Boolean).join(" ");
+}
+
+function getInitials(owner: Owner) {
+  const parts = [owner.first_name, owner.last_name].filter((part): part is string => Boolean(part));
+  return parts
+    .map((part) => part.charAt(0))
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function getOwnerIdFromPatient(patient: Patient) {
+  return patient.owner?.id;
+}
+
+function getErrorMessage(error: unknown) {
+  if (error && typeof error === "object" && "response" in error) {
+    const response = (error as { response?: { data?: { detail?: string } } }).response;
+    return response?.data?.detail ?? "No fue posible completar la accion.";
+  }
+
+  return "No fue posible completar la accion.";
+}
+
+export function OwnersPage() {
+  const location = useLocation();
+  const [owners, setOwners] = useState<OwnerRow[]>([]);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<FilterMode>("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState((location.state as LocationState | null)?.message ?? "");
+  const [ownerToDelete, setOwnerToDelete] = useState<OwnerRow | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  async function loadOwners() {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const [ownerData, patientData] = await Promise.all([
+        ownerService.list(),
+        patientService.list().catch(() => [] as Patient[]),
+      ]);
+
+      const petCounts = patientData.reduce<Record<number, number>>((accumulator, patient) => {
+        const ownerId = getOwnerIdFromPatient(patient);
+
+        if (ownerId) {
+          accumulator[ownerId] = (accumulator[ownerId] ?? 0) + 1;
+        }
+
+        return accumulator;
+      }, {});
+
+      setOwners(ownerData.map((owner) => ({ ...owner, petCount: petCounts[owner.id] ?? 0 })));
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadOwners();
+  }, []);
+
+  const filteredOwners = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return owners.filter((owner) => {
+      const matchesQuery = normalizedQuery
+        ? [getFullName(owner), owner.phone, owner.email, owner.address]
+            .filter(Boolean)
+            .some((value) => value!.toLowerCase().includes(normalizedQuery))
+        : true;
+
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "with-pets" && owner.petCount > 0) ||
+        (filter === "without-pets" && owner.petCount === 0);
+
+      return matchesQuery && matchesFilter;
+    });
+  }, [filter, owners, query]);
+
+  async function handleDelete() {
+    if (!ownerToDelete) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setError("");
+
+    try {
+      await ownerService.remove(ownerToDelete.id);
+      setOwners((current) => current.filter((owner) => owner.id !== ownerToDelete.id));
+      setSuccess(`Propietario ${getFullName(ownerToDelete)} eliminado correctamente.`);
+      setOwnerToDelete(null);
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-normal text-[#172554]">Gestion de Propietarios</h1>
+          <p className="mt-2 text-base text-slate-500">Administra los propietarios y sus mascotas asociadas.</p>
+        </div>
+        <Link
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#4635D3] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3526AD] focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30 sm:min-h-12 sm:px-5"
+          to="/owners/new"
+        >
+          <UserPlus size={21} />
+          Nuevo propietario
+        </Link>
+      </section>
+
+      {success ? <AlertMessage message={success} onClose={() => setSuccess("")} /> : null}
+      {error ? <AlertMessage message={error} tone="error" onClose={() => setError("")} /> : null}
+
+      <Card className="p-5 sm:p-6">
+        <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center">
+          <label className="relative block flex-1">
+            <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={22} />
+            <input
+              className="h-12 w-full rounded-lg border border-slate-200 bg-white pl-12 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#4635D3] focus:ring-4 focus:ring-[#4635D3]/10"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar por nombre, apellido, telefono o correo..."
+              value={query}
+            />
+          </label>
+          <div className="flex flex-wrap gap-3">
+            {filters.map((item) => (
+              <button
+                className={cn(
+                  "h-12 rounded-full px-7 text-sm font-bold transition",
+                  filter === item.value
+                    ? "bg-[#4635D3] text-white shadow-sm"
+                    : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-violet-50"
+                )}
+                key={item.value}
+                onClick={() => setFilter(item.value)}
+                type="button"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {isLoading ? <OwnersLoadingState /> : null}
+
+        {!isLoading && filteredOwners.length === 0 ? (
+          <div className="grid min-h-72 place-items-center rounded-lg border border-dashed border-slate-200 bg-slate-50 px-6 text-center">
+            <div>
+              <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-violet-50 text-[#4635D3]">
+                <UsersRound size={30} />
+              </span>
+              <h2 className="mt-5 text-xl font-extrabold text-[#172554]">No hay propietarios para mostrar</h2>
+              <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+                Registra el primer propietario o ajusta los filtros de busqueda para ver resultados.
+              </p>
+              <Link
+                className="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#4635D3] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3526AD] focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
+                to="/owners/new"
+              >
+                <UserPlus size={18} />
+                Registrar propietario
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
+        {!isLoading && filteredOwners.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-[1080px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-sm font-extrabold text-slate-600">
+                  <th className="px-3 py-4">Propietario</th>
+                  <th className="px-3 py-4">Contacto</th>
+                  <th className="px-3 py-4">Direccion</th>
+                  <th className="px-3 py-4">Mascotas asociadas</th>
+                  <th className="px-3 py-4">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-600">
+                {filteredOwners.map((owner) => (
+                  <tr key={owner.id}>
+                    <td className="px-3 py-5">
+                      <div className="flex items-center gap-4">
+                        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-violet-50 text-lg font-extrabold text-[#3026A6]">
+                          {getInitials(owner)}
+                        </span>
+                        <span className="font-extrabold text-slate-700">{getFullName(owner)}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-5">
+                      <div className="space-y-2">
+                        <span className="flex items-center gap-2 font-semibold">
+                          <Phone size={17} />
+                          {owner.phone || "Sin telefono"}
+                        </span>
+                        <span className="flex items-center gap-2 font-semibold">
+                          <Mail size={17} />
+                          {owner.email || "Sin correo"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="min-w-56 px-3 py-5 font-semibold">{owner.address || "Sin direccion"}</td>
+                    <td className="px-3 py-5">
+                      <span
+                        className={cn(
+                          "inline-flex rounded-md px-4 py-2 text-xs font-extrabold",
+                          owner.petCount > 0 ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                        )}
+                      >
+                        {owner.petCount === 0
+                          ? "Sin mascotas"
+                          : `${owner.petCount} ${owner.petCount === 1 ? "mascota" : "mascotas"}`}
+                      </span>
+                    </td>
+                    <td className="px-3 py-5">
+                      <div className="flex flex-wrap gap-2">
+                        <Button className="h-10 px-3" variant="secondary">
+                          <PawPrint size={17} />
+                          Ver mascotas
+                        </Button>
+                        <Button className="h-10 px-3" variant="secondary">
+                          <UserPlus size={17} />
+                          Crear paciente
+                        </Button>
+                        <Link
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
+                          to={`/owners/${owner.id}/edit`}
+                        >
+                          <Edit3 size={17} />
+                          Editar
+                        </Link>
+                        <Button className="h-10 px-3 border-red-200 text-red-600 hover:bg-red-50" onClick={() => setOwnerToDelete(owner)} variant="secondary">
+                          <Trash2 size={17} />
+                          Eliminar
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="flex flex-col gap-4 border-t border-slate-100 px-3 py-4 text-sm font-semibold text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                Mostrando 1 a {filteredOwners.length} de {filteredOwners.length} propietarios
+              </span>
+              <div className="flex items-center gap-2">
+                <button className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-400" type="button">
+                  ‹
+                </button>
+                <button className="grid h-10 w-10 place-items-center rounded-lg bg-[#4635D3] font-extrabold text-white" type="button">
+                  1
+                </button>
+                <button className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-400" type="button">
+                  ›
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </Card>
+
+      <ConfirmDialog
+        confirmLabel="Eliminar"
+        isLoading={isDeleting}
+        isOpen={Boolean(ownerToDelete)}
+        message={
+          ownerToDelete
+            ? `Se eliminara a ${getFullName(ownerToDelete)}. Esta accion no se puede deshacer.`
+            : ""
+        }
+        onCancel={() => setOwnerToDelete(null)}
+        onConfirm={handleDelete}
+        title="Eliminar propietario"
+      />
+    </div>
+  );
+}
+
+function OwnersLoadingState() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div className="h-20 animate-pulse rounded-lg bg-slate-100" key={index} />
+      ))}
+    </div>
+  );
+}
