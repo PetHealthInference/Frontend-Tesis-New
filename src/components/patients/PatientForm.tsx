@@ -15,6 +15,7 @@ type PatientFormProps = {
   owners: Owner[];
   species: Species[];
   breeds: Breed[];
+  initialOwnerId?: string;
   isSaving: boolean;
   error?: string;
   mode: "create" | "edit";
@@ -91,6 +92,7 @@ export function PatientForm({
   owners,
   species,
   breeds,
+  initialOwnerId = "",
   mode,
   isSaving,
   error,
@@ -115,6 +117,12 @@ export function PatientForm({
 
   const [values, setValues] = useState<PatientFormValues>(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
+
+  useEffect(() => {
+    if (!patient && initialOwnerId) {
+      setValues((current) => ({ ...current, owner_id: initialOwnerId }));
+    }
+  }, [initialOwnerId, patient]);
 
   useEffect(() => {
     if (values.species_id) {

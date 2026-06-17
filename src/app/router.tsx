@@ -9,6 +9,7 @@ import { ClinicalEvaluationPage } from "../pages/evaluations/ClinicalEvaluationP
 import { HistoryPage } from "../pages/history/HistoryPage";
 import { PatientHistoryPage } from "../pages/history/PatientHistoryPage";
 import { KnowledgeBasePage } from "../pages/knowledge/KnowledgeBasePage";
+import { OwnerDetailPage } from "../pages/owners/OwnerDetailPage";
 import { OwnerFormPage } from "../pages/owners/OwnerFormPage";
 import { OwnersPage } from "../pages/owners/OwnersPage";
 import { PatientDetailPage } from "../pages/patients/PatientDetailPage";
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
               { path: "owners", element: <OwnersPage /> },
               { path: "owners/new", element: <OwnerFormPage /> },
               { path: "owners/:ownerId/edit", element: <OwnerFormPage /> },
+              { path: "owners/:ownerId", element: <OwnerDetailPage /> },
               { path: "patients", element: <PatientsPage /> },
               { path: "patients/new", element: <PatientFormPage /> },
               { path: "patients/:patientId", element: <PatientDetailPage /> },

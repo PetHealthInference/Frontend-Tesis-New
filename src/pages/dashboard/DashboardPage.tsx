@@ -1,12 +1,12 @@
 import { ChevronRight, ClipboardPlus, Eye, PawPrint, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { Button } from "../../components/common/Button";
 import { Card } from "../../components/common/Card";
 import { DataTable } from "../../components/common/DataTable";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import { dashboardService } from "../../services/dashboard.service";
-import type { DashboardData, QuickAction, RecentEvaluation, RecentPatient, SummaryCard } from "../../types/dashboard";
+import type { DashboardData, QuickAction, RecentEvaluation, RecentPatient, SummaryCard, WeekRange } from "../../types/dashboard";
 
 const quickActions: QuickAction[] = [
   {
@@ -35,6 +35,8 @@ const initialDashboard: DashboardData = {
 };
 
 export function DashboardPage() {
+  const { selectedWeek } = useOutletContext<{ selectedWeek: WeekRange }>();
+  const navigate = useNavigate();
   const [summary, setSummary] = useState<SummaryCard[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData>(initialDashboard);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,8 +47,8 @@ export function DashboardPage() {
     async function loadDashboard() {
       setIsLoading(true);
       const [summaryData, dashboardData] = await Promise.all([
-        dashboardService.getSummary(),
-        dashboardService.getDashboard(),
+        dashboardService.getSummary(selectedWeek),
+        dashboardService.getDashboard(selectedWeek),
       ]);
 
       if (isMounted) {
@@ -61,7 +63,7 @@ export function DashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [selectedWeek]);
 
   return (
     <div className="space-y-6">
@@ -165,7 +167,14 @@ export function DashboardPage() {
                 <td className="max-w-[140px] truncate px-3 py-3">{row.owner}</td>
                 <td className="whitespace-nowrap px-3 py-3">{row.lastEvaluation}</td>
                 <td className="px-3 py-3">
-                  <Button className="h-8 px-3 text-xs" variant="secondary">Ver detalle</Button>
+                  <Button
+                    className="h-8 px-3 text-xs"
+                    onClick={() => navigate(`/patients/${row.id}`)}
+                    type="button"
+                    variant="secondary"
+                  >
+                    Ver detalle
+                  </Button>
                 </td>
               </tr>
             )}

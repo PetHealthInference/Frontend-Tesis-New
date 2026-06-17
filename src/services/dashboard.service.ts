@@ -1,5 +1,5 @@
 import { PawPrint, ClipboardPlus, TriangleAlert, Users } from "lucide-react";
-import type { DashboardData, RecentEvaluation, RecentPatient, SummaryCard } from "../types/dashboard";
+import type { DashboardData, RecentEvaluation, RecentPatient, SummaryCard, WeekRange } from "../types/dashboard";
 import type { Evaluation, PersistedInferenceResult } from "../types/evaluation";
 import type { Owner } from "../types/owner";
 import type { Patient } from "../types/patient";
@@ -29,19 +29,22 @@ function formatDate(value?: string | null) {
   }).format(date);
 }
 
-function isCurrentMonth(value?: string | null) {
-  if (!value) {
-    return false;
+function weekChange(count: number) {
+  return `${count} esta semana`;
+}
+
+function readEvaluationDate(evaluation: Evaluation) {
+  return evaluation.evaluation_date ?? evaluation.created_at ?? evaluation.date;
+}
+
+function isWithinWeek(value: string | null | undefined, week?: WeekRange) {
+  if (!week || !value) {
+    return true;
   }
 
   const date = new Date(value);
-  const now = new Date();
 
-  return !Number.isNaN(date.getTime()) && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-}
-
-function monthChange(count: number) {
-  return `+${count} este mes`;
+  return !Number.isNaN(date.getTime()) && date >= week.start && date <= week.end;
 }
 
 function normalizeRisk(value?: string | null): "low" | "moderate" | "high" {
@@ -115,19 +118,27 @@ async function readResultsByEvaluation(evaluations: Evaluation[]) {
   return new Map(entries);
 }
 
-function countCreatedThisMonth<T extends { created_at?: string | null }>(items: T[]) {
-  return items.filter((item) => isCurrentMonth(item.created_at)).length;
+function countCreatedThisWeek<T extends { created_at?: string | null }>(items: T[], week?: WeekRange) {
+  return items.filter((item) => isWithinWeek(item.created_at, week)).length;
+}
+
+function getPatientActivityDate(patient: Patient, evaluationsByPatient: Map<number, Evaluation[]>) {
+  const lastEvaluationDate = evaluationsByPatient.get(patient.id)?.[0]?.created_at;
+
+  return new Date(lastEvaluationDate ?? patient.created_at).getTime();
 }
 
 export const dashboardService = {
-  async getDashboard(): Promise<DashboardData> {
+  async getDashboard(week?: WeekRange): Promise<DashboardData> {
     try {
       const [patients, evaluations] = await Promise.all([patientService.list(), evaluationService.list()]);
+      const weeklyEvaluations = evaluations.filter((evaluation) => isWithinWeek(readEvaluationDate(evaluation), week));
       const evaluationsByPatient = buildEvaluationsByPatient(evaluations);
+      const weeklyEvaluationsByPatient = buildEvaluationsByPatient(weeklyEvaluations);
       const patientById = new Map(patients.map((patient) => [patient.id, patient]));
-      const resultsByEvaluation = await readResultsByEvaluation(evaluations.slice(0, 5));
+      const resultsByEvaluation = await readResultsByEvaluation(weeklyEvaluations.slice(0, 5));
 
-      const recentEvaluations = evaluations.slice(0, 5).map((evaluation): RecentEvaluation => {
+      const recentEvaluations = weeklyEvaluations.slice(0, 5).map((evaluation): RecentEvaluation => {
         const patient = patientById.get(evaluation.patient_id);
         const mainResult = pickMainResult(resultsByEvaluation.get(evaluation.id) ?? []);
 
@@ -142,7 +153,8 @@ export const dashboardService = {
       });
 
       const recentPatients = [...patients]
-        .sort((first, second) => new Date(second.created_at).getTime() - new Date(first.created_at).getTime())
+        .filter((patient) => isWithinWeek(patient.created_at, week) || weeklyEvaluationsByPatient.has(patient.id))
+        .sort((first, second) => getPatientActivityDate(second, evaluationsByPatient) - getPatientActivityDate(first, evaluationsByPatient))
         .slice(0, 5)
         .map((patient) => mapPatient(patient, evaluationsByPatient));
 
@@ -155,48 +167,49 @@ export const dashboardService = {
     }
   },
 
-  async getSummary(): Promise<SummaryCard[]> {
+  async getSummary(week?: WeekRange): Promise<SummaryCard[]> {
     try {
       const [owners, patients, evaluations] = await Promise.all([
         ownerService.list(),
         patientService.list(),
         evaluationService.list(),
       ]);
-      const resultsByEvaluation = await readResultsByEvaluation(evaluations);
+      const weeklyEvaluations = evaluations.filter((evaluation) => isWithinWeek(readEvaluationDate(evaluation), week));
+      const resultsByEvaluation = await readResultsByEvaluation(weeklyEvaluations);
       const highRiskCases = [...resultsByEvaluation.values()].filter((results) =>
         results.some((result) => normalizeRisk(result.risk_level) === "high")
       ).length;
-      const highRiskCasesThisMonth = evaluations.filter((evaluation) => {
+      const highRiskCasesThisWeek = weeklyEvaluations.filter((evaluation) => {
         const results = resultsByEvaluation.get(evaluation.id) ?? [];
-        return isCurrentMonth(evaluation.created_at) && results.some((result) => normalizeRisk(result.risk_level) === "high");
+        return results.some((result) => normalizeRisk(result.risk_level) === "high");
       }).length;
 
       return [
         {
           label: "Propietarios registrados",
-          value: String(owners.length),
-          change: monthChange(countCreatedThisMonth<Owner>(owners)),
+          value: String(countCreatedThisWeek<Owner>(owners, week)),
+          change: weekChange(countCreatedThisWeek<Owner>(owners, week)),
           tone: "primary",
           icon: Users,
         },
         {
           label: "Pacientes registrados",
-          value: String(patients.length),
-          change: monthChange(countCreatedThisMonth<Patient>(patients)),
+          value: String(countCreatedThisWeek<Patient>(patients, week)),
+          change: weekChange(countCreatedThisWeek<Patient>(patients, week)),
           tone: "primary",
           icon: PawPrint,
         },
         {
           label: "Evaluaciones realizadas",
-          value: String(evaluations.length),
-          change: monthChange(countCreatedThisMonth<Evaluation>(evaluations)),
+          value: String(weeklyEvaluations.length),
+          change: weekChange(weeklyEvaluations.length),
           tone: "primary",
           icon: ClipboardPlus,
         },
         {
           label: "Casos con riesgo alto",
           value: String(highRiskCases),
-          change: monthChange(highRiskCasesThisMonth),
+          change: weekChange(highRiskCasesThisWeek),
           tone: "danger",
           icon: TriangleAlert,
         },

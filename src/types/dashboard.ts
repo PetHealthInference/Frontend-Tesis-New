@@ -17,6 +17,11 @@ export type QuickAction = {
   icon: LucideIcon;
 };
 
+export type WeekRange = {
+  start: Date;
+  end: Date;
+};
+
 export type RecentEvaluation = {
   id: number;
   patient: string;
