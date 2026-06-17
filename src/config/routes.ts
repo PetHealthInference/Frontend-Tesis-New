@@ -6,11 +6,17 @@ import {
   LineChart,
   PawPrint,
   Settings,
-  ShieldCheck,
   Users,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-export const routes = [
+export type AppRoute = {
+  path: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+export const routes: AppRoute[] = [
   { path: "/", label: "Inicio", icon: Home },
   { path: "/owners", label: "Propietarios", icon: Users },
   { path: "/patients", label: "Pacientes", icon: PawPrint },
@@ -20,4 +26,4 @@ export const routes = [
   { path: "/history", label: "Historial clinico", icon: FileClock },
   { path: "/knowledge", label: "Base de conocimiento", icon: BookOpen },
   { path: "/settings", label: "Configuracion", icon: Settings },
-] as const;
+];
