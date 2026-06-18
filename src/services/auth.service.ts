@@ -1,4 +1,5 @@
 import type { ForgotPasswordRequest, ForgotPasswordResponse, LoginRequest, LoginResponse } from "../types/auth";
+import type { User } from "../types/user";
 import { storage } from "../utils/storage";
 import { api } from "./api";
 
@@ -24,6 +25,10 @@ export const authService = {
 
       throw error;
     }
+  },
+  async getCurrentUser() {
+    const { data } = await api.get<User>("/api/v1/auth/me");
+    return data;
   },
   logout() {
     storage.clearToken();

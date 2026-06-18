@@ -1,6 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AlertMessage } from "../../components/common/AlertMessage";
 import { PatientForm } from "../../components/patients/PatientForm";
 import { ownerService } from "../../services/owner.service";
@@ -20,8 +20,10 @@ function getErrorMessage(error: unknown) {
 export function PatientFormPage() {
   const navigate = useNavigate();
   const { patientId } = useParams();
+  const [searchParams] = useSearchParams();
   const isEditMode = Boolean(patientId);
   const parsedPatientId = patientId ? Number(patientId) : null;
+  const initialOwnerId = searchParams.get("ownerId") ?? "";
   const [patient, setPatient] = useState<Patient | undefined>();
   const [owners, setOwners] = useState<Owner[]>([]);
   const [species, setSpecies] = useState<Species[]>([]);
@@ -144,6 +146,7 @@ export function PatientFormPage() {
         <PatientForm
           breeds={breeds}
           error={error}
+          initialOwnerId={initialOwnerId}
           isSaving={isSaving}
           mode={isEditMode ? "edit" : "create"}
           onSpeciesChange={handleSpeciesChange}

@@ -1,13 +1,15 @@
-import { Edit3, Mail, PawPrint, Phone, Search, Trash2, UserPlus, UsersRound } from "lucide-react";
+import { Edit3, Eye, Mail, PawPrint, Phone, Search, Trash2, UserPlus, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { AlertMessage } from "../../components/common/AlertMessage";
 import { Button } from "../../components/common/Button";
 import { Card } from "../../components/common/Card";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
+import { Modal } from "../../components/common/Modal";
+import { OwnerForm } from "../../components/owners/OwnerForm";
 import { ownerService } from "../../services/owner.service";
 import { patientService } from "../../services/patient.service";
-import type { Owner } from "../../types/owner";
+import type { Owner, OwnerPayload } from "../../types/owner";
 import type { Patient } from "../../types/patient";
 import { cn } from "../../utils/cn";
 
@@ -23,8 +25,8 @@ type OwnerRow = Owner & {
 
 const filters: { label: string; value: FilterMode }[] = [
   { label: "Todos", value: "all" },
-  { label: "Con mascotas", value: "with-pets" },
-  { label: "Sin mascotas", value: "without-pets" },
+  { label: "Con pacientes", value: "with-pets" },
+  { label: "Sin pacientes", value: "without-pets" },
 ];
 
 function getFullName(owner: Owner) {
@@ -62,7 +64,11 @@ export function OwnersPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState((location.state as LocationState | null)?.message ?? "");
   const [ownerToDelete, setOwnerToDelete] = useState<OwnerRow | null>(null);
+  const [ownerToEdit, setOwnerToEdit] = useState<OwnerRow | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   async function loadOwners() {
     setIsLoading(true);
@@ -135,20 +141,62 @@ export function OwnersPage() {
     }
   }
 
+  async function handleCreate(payload: OwnerPayload) {
+    setIsSaving(true);
+    setFormError("");
+
+    try {
+      const owner = await ownerService.create(payload);
+      setOwners((current) => [{ ...owner, petCount: 0 }, ...current]);
+      setSuccess("Propietario registrado correctamente.");
+      setIsCreateOpen(false);
+    } catch (caughtError) {
+      setFormError(getErrorMessage(caughtError));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleUpdate(payload: OwnerPayload) {
+    if (!ownerToEdit) {
+      return;
+    }
+
+    setIsSaving(true);
+    setFormError("");
+
+    try {
+      const owner = await ownerService.update(ownerToEdit.id, payload);
+      setOwners((current) =>
+        current.map((item) => (item.id === owner.id ? { ...owner, petCount: item.petCount } : item))
+      );
+      setSuccess("Propietario actualizado correctamente.");
+      setOwnerToEdit(null);
+    } catch (caughtError) {
+      setFormError(getErrorMessage(caughtError));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-extrabold tracking-normal text-[#172554]">Gestion de Propietarios</h1>
-          <p className="mt-2 text-base text-slate-500">Administra los propietarios y sus mascotas asociadas.</p>
+          <p className="mt-2 text-base text-slate-500">Administra los propietarios y sus pacientes asociados.</p>
         </div>
-        <Link
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#4635D3] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3526AD] focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30 sm:min-h-12 sm:px-5"
-          to="/owners/new"
+        <Button
+          className="sm:min-h-12 sm:px-5"
+          icon={<UserPlus size={21} />}
+          onClick={() => {
+            setFormError("");
+            setIsCreateOpen(true);
+          }}
+          type="button"
         >
-          <UserPlus size={21} />
           Nuevo propietario
-        </Link>
+        </Button>
       </section>
 
       {success ? <AlertMessage message={success} onClose={() => setSuccess("")} /> : null}
@@ -196,13 +244,17 @@ export function OwnersPage() {
               <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
                 Registra el primer propietario o ajusta los filtros de busqueda para ver resultados.
               </p>
-              <Link
-                className="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#4635D3] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3526AD] focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
-                to="/owners/new"
+              <Button
+                className="mt-5"
+                icon={<UserPlus size={18} />}
+                onClick={() => {
+                  setFormError("");
+                  setIsCreateOpen(true);
+                }}
+                type="button"
               >
-                <UserPlus size={18} />
                 Registrar propietario
-              </Link>
+              </Button>
             </div>
           </div>
         ) : null}
@@ -215,7 +267,7 @@ export function OwnersPage() {
                   <th className="px-3 py-4">Propietario</th>
                   <th className="px-3 py-4">Contacto</th>
                   <th className="px-3 py-4">Direccion</th>
-                  <th className="px-3 py-4">Mascotas asociadas</th>
+                  <th className="px-3 py-4">Pacientes asociados</th>
                   <th className="px-3 py-4">Acciones</th>
                 </tr>
               </thead>
@@ -251,27 +303,45 @@ export function OwnersPage() {
                         )}
                       >
                         {owner.petCount === 0
-                          ? "Sin mascotas"
-                          : `${owner.petCount} ${owner.petCount === 1 ? "mascota" : "mascotas"}`}
+                          ? "Sin pacientes"
+                          : `${owner.petCount} ${owner.petCount === 1 ? "paciente" : "pacientes"}`}
                       </span>
                     </td>
                     <td className="px-3 py-5">
                       <div className="flex flex-wrap gap-2">
-                        <Button className="h-10 px-3" variant="secondary">
-                          <PawPrint size={17} />
-                          Ver mascotas
-                        </Button>
-                        <Button className="h-10 px-3" variant="secondary">
-                          <UserPlus size={17} />
-                          Crear paciente
-                        </Button>
+                        <Link
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
+                          to={`/owners/${owner.id}`}
+                        >
+                          <Eye size={17} />
+                          Ver detalle
+                        </Link>
                         <Link
                           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
-                          to={`/owners/${owner.id}/edit`}
+                          to={`/owners/${owner.id}?section=patients`}
+                        >
+                          <PawPrint size={17} />
+                          Ver pacientes
+                        </Link>
+                        <Link
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
+                          to={`/patients/new?ownerId=${owner.id}`}
+                        >
+                          <UserPlus size={17} />
+                          Crear paciente
+                        </Link>
+                        <Button
+                          className="h-10 px-3"
+                          onClick={() => {
+                            setFormError("");
+                            setOwnerToEdit(owner);
+                          }}
+                          type="button"
+                          variant="secondary"
                         >
                           <Edit3 size={17} />
                           Editar
-                        </Link>
+                        </Button>
                         <Button className="h-10 px-3 border-red-200 text-red-600 hover:bg-red-50" onClick={() => setOwnerToDelete(owner)} variant="secondary">
                           <Trash2 size={17} />
                           Eliminar
@@ -315,6 +385,37 @@ export function OwnersPage() {
         onConfirm={handleDelete}
         title="Eliminar propietario"
       />
+
+      <Modal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        title="Nuevo propietario"
+      >
+        <OwnerForm
+          error={formError}
+          isSaving={isSaving}
+          mode="create"
+          onCancel={() => setIsCreateOpen(false)}
+          onSubmit={handleCreate}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(ownerToEdit)}
+        onClose={() => setOwnerToEdit(null)}
+        title="Editar propietario"
+      >
+        {ownerToEdit ? (
+          <OwnerForm
+            error={formError}
+            isSaving={isSaving}
+            mode="edit"
+            onCancel={() => setOwnerToEdit(null)}
+            onSubmit={handleUpdate}
+            owner={ownerToEdit}
+          />
+        ) : null}
+      </Modal>
     </div>
   );
 }

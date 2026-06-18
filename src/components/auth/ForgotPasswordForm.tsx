@@ -50,9 +50,9 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
 
   return (
     <div>
-      <div className="mb-9 text-center">
-        <h2 className="text-3xl font-extrabold text-[#172554] sm:text-[2.2rem]">Recuperar contrasena</h2>
-        <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+      <div className="mb-6 text-center">
+        <h2 className="text-2xl font-extrabold text-[#172554] sm:text-[1.7rem]">Recuperar contrasena</h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
           Ingresa tu correo y te enviaremos instrucciones si existe una cuenta asociada.
         </p>
       </div>
@@ -60,13 +60,13 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
       {error ? <AlertMessage message={error} tone="error" onClose={() => setError("")} /> : null}
       {success ? <AlertMessage message={success} onClose={() => setSuccess("")} /> : null}
 
-      <form className="mt-6 space-y-7" onSubmit={handleSubmit}>
+      <form className="mt-5 space-y-5" onSubmit={handleSubmit}>
         <label className="block">
-          <span className="mb-2 block text-base font-extrabold text-slate-700">Correo electronico</span>
+          <span className="mb-2 block text-sm font-extrabold text-slate-700">Correo electronico</span>
           <span className="relative block">
-            <Mail className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={22} />
+            <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={19} />
             <input
-              className="h-[4.35rem] w-full rounded-xl border border-slate-200 bg-white pl-16 pr-5 text-xl font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#4635D3] focus:ring-4 focus:ring-[#4635D3]/10 sm:text-[1.28rem]"
+              className="h-[3.25rem] w-full rounded-lg border border-slate-200 bg-white pl-12 pr-4 text-base font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#4635D3] focus:ring-4 focus:ring-[#4635D3]/10"
               onChange={(event) => setEmail(event.target.value)}
               placeholder="Ingresa tu correo electronico"
               type="email"
@@ -75,22 +75,22 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
           </span>
         </label>
 
-        <Button className="h-[4.35rem] w-full rounded-xl text-xl shadow-[0_14px_28px_rgba(70,53,211,0.22)]" disabled={isSubmitting} icon={isSubmitting ? <Loader2 className="animate-spin" size={21} /> : <Send size={21} />} type="submit">
+        <Button className="h-[3.25rem] w-full rounded-lg text-base shadow-[0_12px_24px_rgba(70,53,211,0.20)]" disabled={isSubmitting} icon={isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />} type="submit">
           {isSubmitting ? "Enviando..." : "Enviar instrucciones"}
         </Button>
       </form>
 
       <button
-        className="mt-7 w-full rounded-lg px-4 py-3 text-center text-xl font-extrabold text-[#4635D3] transition hover:bg-violet-50"
+        className="mt-5 w-full rounded-lg px-4 py-2.5 text-center text-sm font-extrabold text-[#4635D3] transition hover:bg-violet-50"
         onClick={onBack}
         type="button"
       >
         Volver al inicio de sesion
       </button>
 
-      <div className="mt-7 flex items-start gap-4 border-t border-slate-100 pt-7 text-sm font-semibold leading-6 text-slate-500">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-violet-50 text-[#4635D3]">
-          <Info size={21} />
+      <div className="mt-5 flex items-start gap-3 border-t border-slate-100 pt-5 text-sm font-semibold leading-6 text-slate-500">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-violet-50 text-[#4635D3]">
+          <Info size={18} />
         </span>
         <span>Si el correo esta registrado, se enviaran instrucciones de recuperacion.</span>
       </div>

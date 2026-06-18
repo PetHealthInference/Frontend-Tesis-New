@@ -5,6 +5,7 @@ export type Owner = {
   email?: string;
   phone?: string;
   address?: string;
+  created_at?: string | null;
 };
 
 export type OwnerFormValues = {

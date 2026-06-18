@@ -23,6 +23,7 @@ import { DataTable } from "../../components/common/DataTable";
 import { FormField } from "../../components/common/FormField";
 import { FormSelect } from "../../components/common/FormSelect";
 import { useAuth } from "../../hooks/useAuth";
+import { authService } from "../../services/auth.service";
 import { userService } from "../../services/user.service";
 import type { User, UserFormValues } from "../../types/user";
 import { cn } from "../../utils/cn";
@@ -102,6 +103,7 @@ export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [theme, setTheme] = useState("light");
   const [density, setDensity] = useState("comfortable");
+  const [profileUser, setProfileUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [userForm, setUserForm] = useState<UserFormValues>(initialUserForm);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
@@ -110,7 +112,30 @@ export function SettingsPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const currentUser = useMemo(() => users.find((item) => item.id === user.id), [user.id, users]);
+  const currentUser = useMemo(() => profileUser ?? users.find((item) => item.id === user.id) ?? null, [profileUser, user.id, users]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProfileUser() {
+      try {
+        const data = await authService.getCurrentUser();
+        if (isMounted) {
+          setProfileUser(data);
+        }
+      } catch {
+        if (isMounted) {
+          setProfileUser(null);
+        }
+      }
+    }
+
+    loadProfileUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -232,10 +257,10 @@ export function SettingsPage() {
           <Card className="p-6">
             <div className="mb-6 flex items-center gap-4">
               <span className="grid h-16 w-16 place-items-center rounded-full bg-violet-50 text-2xl font-extrabold text-[#4635D3]">
-                {(currentUser?.full_name ?? "Dr. Juan Perez").charAt(0)}
+                {(currentUser?.full_name ?? "Usuario").charAt(0)}
               </span>
               <div>
-                <h2 className="text-2xl font-extrabold text-[#172554]">{currentUser?.full_name ?? "Dr. Juan Perez"}</h2>
+                <h2 className="text-2xl font-extrabold text-[#172554]">{currentUser?.full_name ?? "Usuario autenticado"}</h2>
                 <p className="mt-1 text-sm font-semibold text-slate-500">{currentUser?.email ?? "Sesion autenticada"}</p>
               </div>
             </div>

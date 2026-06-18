@@ -1,6 +1,6 @@
 import { Save, UserRound } from "lucide-react";
 import type { FormEvent } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertMessage } from "../common/AlertMessage";
 import { Button } from "../common/Button";
@@ -13,6 +13,7 @@ type OwnerFormProps = {
   isSaving: boolean;
   error?: string;
   mode: "create" | "edit";
+  onCancel?: () => void;
   onSubmit: (payload: OwnerPayload) => Promise<void>;
 };
 
@@ -67,7 +68,7 @@ function validate(values: OwnerFormValues): FormErrors {
   return errors;
 }
 
-export function OwnerForm({ owner, mode, isSaving, error, onSubmit }: OwnerFormProps) {
+export function OwnerForm({ owner, mode, isSaving, error, onCancel, onSubmit }: OwnerFormProps) {
   const initialValues = useMemo<OwnerFormValues>(
     () =>
       owner
@@ -84,6 +85,11 @@ export function OwnerForm({ owner, mode, isSaving, error, onSubmit }: OwnerFormP
 
   const [values, setValues] = useState<OwnerFormValues>(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
+
+  useEffect(() => {
+    setValues(initialValues);
+    setErrors({});
+  }, [initialValues]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -136,7 +142,7 @@ export function OwnerForm({ owner, mode, isSaving, error, onSubmit }: OwnerFormP
             helpText="Ingresa la direccion completa."
             label="Direccion"
             onChange={(event) => updateField("address", event.target.value)}
-            placeholder="Ej. Av. San Juan 479, San Luis, Lima"
+            placeholder="Ej. Av. Siempreviva 742"
             required
             value={values.address}
           />
@@ -166,12 +172,18 @@ export function OwnerForm({ owner, mode, isSaving, error, onSubmit }: OwnerFormP
       </Card>
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Link
-          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
-          to="/owners"
-        >
-          Cancelar
-        </Link>
+        {onCancel ? (
+          <Button onClick={onCancel} type="button" variant="secondary">
+            Cancelar
+          </Button>
+        ) : (
+          <Link
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
+            to="/owners"
+          >
+            Cancelar
+          </Link>
+        )}
         <Button disabled={isSaving} icon={<Save size={19} />} type="submit">
           {isSaving ? "Guardando..." : mode === "create" ? "Guardar propietario" : "Guardar cambios"}
         </Button>
