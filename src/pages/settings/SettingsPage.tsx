@@ -1,6 +1,6 @@
 import {
-  AlertTriangle,
   CheckCircle2,
+  Edit3,
   EyeOff,
   Lock,
   LogOut,
@@ -12,6 +12,7 @@ import {
   Sun,
   UserPlus,
   Users,
+  Power,
 } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -22,6 +23,7 @@ import { Card } from "../../components/common/Card";
 import { DataTable } from "../../components/common/DataTable";
 import { FormField } from "../../components/common/FormField";
 import { FormSelect } from "../../components/common/FormSelect";
+import { Modal } from "../../components/common/Modal";
 import { useAuth } from "../../hooks/useAuth";
 import { authService } from "../../services/auth.service";
 import { userService } from "../../services/user.service";
@@ -81,6 +83,16 @@ function validateUserForm(values: UserFormValues): FormErrors {
   return errors;
 }
 
+function validateEditUserForm(values: UserFormValues): FormErrors {
+  const errors = validateUserForm({ ...values, password: values.password || "password-placeholder" });
+
+  if (!values.password) {
+    delete errors.password;
+  }
+
+  return errors;
+}
+
 function roleLabel(role?: string | null) {
   if (role === "admin") {
     return "ADMINISTRADOR";
@@ -109,6 +121,11 @@ export function SettingsPage() {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState<number | null>(null);
+  const [userToEdit, setUserToEdit] = useState<User | null>(null);
+  const [editUserForm, setEditUserForm] = useState<UserFormValues>(initialUserForm);
+  const [editFormErrors, setEditFormErrors] = useState<FormErrors>({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -216,6 +233,80 @@ export function SettingsPage() {
   function updateUserForm(field: keyof UserFormValues, value: string) {
     setUserForm((current) => ({ ...current, [field]: value }));
     setFormErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  function openEditUser(userToUpdate: User) {
+    setUserToEdit(userToUpdate);
+    setEditUserForm({
+      full_name: userToUpdate.full_name,
+      email: userToUpdate.email,
+      password: "",
+      role_id: String(userToUpdate.role?.id ?? veterinarianRoleId),
+    });
+    setEditFormErrors({});
+    setError("");
+  }
+
+  function updateEditUserForm(field: keyof UserFormValues, value: string) {
+    setEditUserForm((current) => ({ ...current, [field]: value }));
+    setEditFormErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  async function handleUpdateUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!userToEdit) {
+      return;
+    }
+
+    const nextErrors = validateEditUserForm(editUserForm);
+    setEditFormErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+
+    setIsUpdatingUser(true);
+    setError("");
+
+    try {
+      const updated = await userService.update(userToEdit.id, {
+        full_name: editUserForm.full_name.trim(),
+        email: editUserForm.email.trim(),
+        role_id: Number(editUserForm.role_id),
+        ...(editUserForm.password ? { password: editUserForm.password } : {}),
+      });
+
+      setUsers((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setProfileUser((current) => (current?.id === updated.id ? updated : current));
+      setUserToEdit(null);
+      setMessage("Usuario actualizado correctamente.");
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setIsUpdatingUser(false);
+    }
+  }
+
+  async function handleToggleUserStatus(item: User) {
+    if (item.id === user.id && item.is_active) {
+      setError("No puedes desactivar tu propio usuario.");
+      return;
+    }
+
+    setIsUpdatingStatus(item.id);
+    setError("");
+
+    try {
+      const updated = await userService.updateStatus(item.id, !item.is_active);
+      setUsers((current) => current.map((currentUser) => (currentUser.id === updated.id ? updated : currentUser)));
+      setProfileUser((current) => (current?.id === updated.id ? updated : current));
+      setMessage(updated.is_active ? "Usuario activado correctamente." : "Usuario desactivado correctamente.");
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setIsUpdatingStatus(null);
+    }
   }
 
   return (
@@ -438,21 +529,81 @@ export function SettingsPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <Button disabled variant="secondary">
-                        Editar
-                      </Button>
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={() => openEditUser(item)} type="button" variant="secondary">
+                          <Edit3 size={17} />
+                          Editar
+                        </Button>
+                        <Button
+                          className={item.is_active ? "border-amber-200 text-amber-700 hover:bg-amber-50" : ""}
+                          disabled={isUpdatingStatus === item.id || (item.id === user.id && item.is_active)}
+                          onClick={() => handleToggleUserStatus(item)}
+                          title={item.id === user.id && item.is_active ? "No puedes desactivar tu propio usuario" : undefined}
+                          type="button"
+                          variant="secondary"
+                        >
+                          <Power size={17} />
+                          {item.is_active ? "Desactivar" : "Activar"}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 )}
               />
             )}
-            <div className="mt-5 flex gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-blue-700">
-              <AlertTriangle className="mt-0.5 shrink-0" size={18} />
-              Editar, activar o desactivar usuarios queda preparado; el backend actual solo expone listado y creacion.
-            </div>
           </Card>
         </section>
       ) : null}
+
+      <Modal isOpen={Boolean(userToEdit)} onClose={() => setUserToEdit(null)} title="Editar usuario">
+        <form className="space-y-4" onSubmit={handleUpdateUser}>
+          <FormField
+            error={editFormErrors.full_name}
+            label="Nombre completo"
+            onChange={(event) => updateEditUserForm("full_name", event.target.value)}
+            placeholder="Ej. Dra. Maria Perez"
+            required
+            value={editUserForm.full_name}
+          />
+          <FormField
+            error={editFormErrors.email}
+            label="Correo electronico"
+            onChange={(event) => updateEditUserForm("email", event.target.value)}
+            placeholder="correo@clinica.com"
+            required
+            type="email"
+            value={editUserForm.email}
+          />
+          <FormField
+            error={editFormErrors.password}
+            helpText="Dejalo vacio para conservar la contrasena actual."
+            label="Nueva contrasena"
+            minLength={8}
+            onChange={(event) => updateEditUserForm("password", event.target.value)}
+            placeholder="Opcional"
+            type="password"
+            value={editUserForm.password}
+          />
+          <FormSelect
+            error={editFormErrors.role_id}
+            label="Rol"
+            onChange={(event) => updateEditUserForm("role_id", event.target.value)}
+            required
+            value={editUserForm.role_id}
+          >
+            <option value={adminRoleId}>ADMINISTRADOR</option>
+            <option value={veterinarianRoleId}>VETERINARIO</option>
+          </FormSelect>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button onClick={() => setUserToEdit(null)} type="button" variant="secondary">
+              Cancelar
+            </Button>
+            <Button disabled={isUpdatingUser} icon={<Save size={18} />} type="submit">
+              {isUpdatingUser ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {!isAdmin && activeTab !== "users" ? (
         <Card className="p-5">
