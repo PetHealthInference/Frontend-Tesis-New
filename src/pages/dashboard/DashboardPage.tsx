@@ -144,7 +144,13 @@ export function DashboardPage() {
                   <StatusBadge risk={row.risk} />
                 </td>
                 <td className="px-3 py-3">
-                  <Button aria-label={`Ver evaluacion de ${row.patient}`} className="h-8 w-8 p-0" variant="secondary">
+                  <Button
+                    aria-label={`Ver resultado de ${row.patient}`}
+                    className="h-8 w-8 p-0"
+                    onClick={() => navigate(`/results?evaluationId=${row.id}`)}
+                    type="button"
+                    variant="secondary"
+                  >
                     <Eye size={15} />
                   </Button>
                 </td>

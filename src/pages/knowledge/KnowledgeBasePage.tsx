@@ -243,8 +243,8 @@ export function KnowledgeBasePage() {
               />
             </label>
             <SpeciesButton active={speciesFilter === "all"} label="Todos" onClick={() => setSpeciesFilter("all")} />
-            <SpeciesButton active={speciesFilter === "dog"} icon={Dog} label="Canino" onClick={() => setSpeciesFilter("dog")} />
-            <SpeciesButton active={speciesFilter === "cat"} icon={Cat} label="Felino" onClick={() => setSpeciesFilter("cat")} />
+            <SpeciesButton active={speciesFilter === "dog"} icon={Dog} label="Perro" onClick={() => setSpeciesFilter("dog")} />
+            <SpeciesButton active={speciesFilter === "cat"} icon={Cat} label="Gato" onClick={() => setSpeciesFilter("cat")} />
           </div>
         </div>
 

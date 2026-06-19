@@ -1,10 +1,9 @@
-import { Cat, ChevronRight, Dog, FileClock, HelpCircle, Search, X } from "lucide-react";
+import { Calendar, Cat, ChevronRight, Dog, Eraser, FileClock, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { AlertMessage } from "../../components/common/AlertMessage";
 import { Button } from "../../components/common/Button";
 import { Card } from "../../components/common/Card";
-import { FormField } from "../../components/common/FormField";
 import { FormSelect } from "../../components/common/FormSelect";
 import { historyService, type PatientHistorySummary } from "../../services/history.service";
 import { calculateAge, formatDate, getOwnerName, primaryResult, riskClasses, riskLabel } from "../../utils/clinical";
@@ -123,23 +122,20 @@ export function HistoryPage() {
 
   return (
     <div className="space-y-6">
-      <section className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+      <section>
         <div>
           <h1 className="text-3xl font-extrabold tracking-normal text-[#172554]">Historial clinico</h1>
           <p className="mt-2 text-base text-slate-500">
             Consulta el historial clinico completo de los pacientes registrados.
           </p>
         </div>
-        <Button icon={<HelpCircle size={18} />} variant="secondary">
-          Ayuda
-        </Button>
       </section>
 
       {error ? <AlertMessage message={error} tone="error" onClose={() => setError("")} /> : null}
 
       <Card className="p-5 sm:p-6">
-        <div className="grid gap-5 lg:grid-cols-5">
-          <label className="relative block">
+        <div className="flex flex-col gap-4 xl:flex-row xl:flex-wrap xl:items-end 2xl:flex-nowrap">
+          <label className="relative block min-w-[260px] flex-1">
             <span className="mb-2 block text-sm font-bold text-slate-700">Buscar paciente</span>
             <Search className="pointer-events-none absolute bottom-3.5 left-4 text-slate-400" size={20} />
             <input
@@ -149,7 +145,12 @@ export function HistoryPage() {
               value={query}
             />
           </label>
-          <FormSelect label="Propietario" onChange={(event) => setOwnerFilter(event.target.value)} value={ownerFilter}>
+          <FormSelect
+            className="min-w-[210px]"
+            label="Propietario"
+            onChange={(event) => setOwnerFilter(event.target.value)}
+            value={ownerFilter}
+          >
             <option value="">Todos los propietarios</option>
             {owners.map((owner) => (
               <option key={owner} value={owner}>
@@ -157,7 +158,12 @@ export function HistoryPage() {
               </option>
             ))}
           </FormSelect>
-          <FormSelect label="Especie" onChange={(event) => setSpeciesFilter(event.target.value)} value={speciesFilter}>
+          <FormSelect
+            className="min-w-[170px]"
+            label="Especie"
+            onChange={(event) => setSpeciesFilter(event.target.value)}
+            value={speciesFilter}
+          >
             <option value="">Todas las especies</option>
             {species.map((item) => (
               <option key={item} value={item}>
@@ -165,20 +171,35 @@ export function HistoryPage() {
               </option>
             ))}
           </FormSelect>
-          <FormSelect label="Nivel de riesgo" onChange={(event) => setRiskFilter(event.target.value)} value={riskFilter}>
+          <FormSelect
+            className="min-w-[180px]"
+            label="Nivel de riesgo"
+            onChange={(event) => setRiskFilter(event.target.value)}
+            value={riskFilter}
+          >
             <option value="">Todos los riesgos</option>
             <option value="Bajo">Bajo</option>
             <option value="Moderado">Moderado</option>
             <option value="Alto">Alto</option>
           </FormSelect>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-            <FormField label="Desde" onChange={(event) => setFromDate(event.target.value)} type="date" value={fromDate} />
-            <FormField label="Hasta" onChange={(event) => setToDate(event.target.value)} type="date" value={toDate} />
-          </div>
-        </div>
-        <div className="mt-5 flex justify-end">
-          <Button icon={<X size={17} />} onClick={clearFilters} type="button" variant="secondary">
-            Limpiar filtros
+          <DateRangePicker
+            fromDate={fromDate}
+            onChange={(from, to) => {
+              setFromDate(from);
+              setToDate(to);
+            }}
+            toDate={toDate}
+          />
+          <Button
+            aria-label="Limpiar filtros"
+            className="h-12 w-12 shrink-0 p-0"
+            onClick={clearFilters}
+            title="Limpiar filtros"
+            type="button"
+            variant="secondary"
+          >
+            <Eraser size={18} />
+            <span className="sr-only">Limpiar filtros</span>
           </Button>
         </div>
       </Card>
@@ -275,6 +296,114 @@ export function HistoryPage() {
           </div>
         ) : null}
       </Card>
+    </div>
+  );
+}
+
+type DateRangePickerProps = {
+  fromDate: string;
+  toDate: string;
+  onChange: (fromDate: string, toDate: string) => void;
+};
+
+function formatRangeLabel(fromDate: string, toDate: string) {
+  if (!fromDate && !toDate) {
+    return "Seleccionar rango";
+  }
+
+  const format = (value: string) =>
+    new Intl.DateTimeFormat("es-CO", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(new Date(`${value}T00:00:00`));
+
+  if (fromDate && toDate) {
+    return `${format(fromDate)} - ${format(toDate)}`;
+  }
+
+  return fromDate ? `Desde ${format(fromDate)}` : `Hasta ${format(toDate)}`;
+}
+
+function DateRangePicker({ fromDate, toDate, onChange }: DateRangePickerProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [draftFrom, setDraftFrom] = useState(fromDate);
+  const [draftTo, setDraftTo] = useState(toDate);
+
+  useEffect(() => {
+    setDraftFrom(fromDate);
+    setDraftTo(toDate);
+  }, [fromDate, toDate]);
+
+  function applyRange() {
+    onChange(draftFrom, draftTo);
+    setIsOpen(false);
+  }
+
+  function clearRange() {
+    setDraftFrom("");
+    setDraftTo("");
+    onChange("", "");
+    setIsOpen(false);
+  }
+
+  return (
+    <div className="relative min-w-[280px]">
+      <span className="mb-2 block text-sm font-bold text-slate-700">Rango de fechas</span>
+      <button
+        className="inline-flex h-12 w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:border-[#4635D3] focus:outline-none focus:ring-4 focus:ring-[#4635D3]/10"
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <Calendar className="shrink-0 text-slate-400" size={18} />
+          <span className="truncate">{formatRangeLabel(fromDate, toDate)}</span>
+        </span>
+        {(fromDate || toDate) ? (
+          <span className="rounded-full bg-violet-50 px-2 py-1 text-xs font-extrabold text-[#4635D3]">Activo</span>
+        ) : null}
+      </button>
+
+      {isOpen ? (
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-full rounded-lg border border-slate-100 bg-white p-4 shadow-2xl">
+          <div className="grid gap-3">
+            <label className="block">
+              <span className="mb-2 block text-xs font-extrabold text-slate-500">Desde</span>
+              <input
+                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-[#4635D3] focus:ring-4 focus:ring-[#4635D3]/10"
+                onChange={(event) => {
+                  const nextFrom = event.target.value;
+                  setDraftFrom(nextFrom);
+
+                  if (draftTo && nextFrom && draftTo < nextFrom) {
+                    setDraftTo(nextFrom);
+                  }
+                }}
+                type="date"
+                value={draftFrom}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-extrabold text-slate-500">Hasta</span>
+              <input
+                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-[#4635D3] focus:ring-4 focus:ring-[#4635D3]/10"
+                min={draftFrom || undefined}
+                onChange={(event) => setDraftTo(event.target.value)}
+                type="date"
+                value={draftTo}
+              />
+            </label>
+          </div>
+          <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button className="min-h-10 px-3" onClick={clearRange} type="button" variant="secondary">
+              Limpiar
+            </Button>
+            <Button className="min-h-10 px-3" onClick={applyRange} type="button">
+              Aplicar
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

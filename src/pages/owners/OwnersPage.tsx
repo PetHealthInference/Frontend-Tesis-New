@@ -126,6 +126,12 @@ export function OwnersPage() {
       return;
     }
 
+    if (ownerToDelete.petCount > 0) {
+      setError("No puedes eliminar un propietario con pacientes relacionados.");
+      setOwnerToDelete(null);
+      return;
+    }
+
     setIsDeleting(true);
     setError("");
 
@@ -342,7 +348,17 @@ export function OwnersPage() {
                           <Edit3 size={17} />
                           Editar
                         </Button>
-                        <Button className="h-10 px-3 border-red-200 text-red-600 hover:bg-red-50" onClick={() => setOwnerToDelete(owner)} variant="secondary">
+                        <Button
+                          className="h-10 px-3 border-red-200 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                          disabled={owner.petCount > 0}
+                          onClick={() => setOwnerToDelete(owner)}
+                          title={
+                            owner.petCount > 0
+                              ? "No se puede eliminar porque tiene pacientes relacionados."
+                              : "Eliminar propietario"
+                          }
+                          variant="secondary"
+                        >
                           <Trash2 size={17} />
                           Eliminar
                         </Button>

@@ -19,6 +19,7 @@ type PatientFormProps = {
   isSaving: boolean;
   error?: string;
   mode: "create" | "edit";
+  onCancel?: () => void;
   onSpeciesChange: (speciesId: number | null) => void;
   onSubmit: (payload: PatientPayload) => Promise<void>;
 };
@@ -96,6 +97,7 @@ export function PatientForm({
   mode,
   isSaving,
   error,
+  onCancel,
   onSpeciesChange,
   onSubmit,
 }: PatientFormProps) {
@@ -119,10 +121,9 @@ export function PatientForm({
   const [errors, setErrors] = useState<FormErrors>({});
 
   useEffect(() => {
-    if (!patient && initialOwnerId) {
-      setValues((current) => ({ ...current, owner_id: initialOwnerId }));
-    }
-  }, [initialOwnerId, patient]);
+    setValues(!patient && initialOwnerId ? { ...initialValues, owner_id: initialOwnerId } : initialValues);
+    setErrors({});
+  }, [initialOwnerId, initialValues, patient]);
 
   useEffect(() => {
     if (values.species_id) {
@@ -260,12 +261,18 @@ export function PatientForm({
       </Card>
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Link
-          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
-          to="/patients"
-        >
-          Cancelar
-        </Link>
+        {onCancel ? (
+          <Button onClick={onCancel} type="button" variant="secondary">
+            Cancelar
+          </Button>
+        ) : (
+          <Link
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
+            to="/patients"
+          >
+            Cancelar
+          </Link>
+        )}
         <Button disabled={isSaving} icon={<Save size={19} />} type="submit">
           {isSaving ? "Guardando..." : mode === "create" ? "Guardar paciente" : "Guardar cambios"}
         </Button>

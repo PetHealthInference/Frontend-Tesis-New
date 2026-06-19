@@ -37,6 +37,10 @@ function normalizePayload(values: OwnerFormValues): OwnerPayload {
   };
 }
 
+function normalizePhone(value: string) {
+  return value.replace(/[^\d+\s()-]/g, "");
+}
+
 function validate(values: OwnerFormValues): FormErrors {
   const errors: FormErrors = {};
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -104,7 +108,7 @@ export function OwnerForm({ owner, mode, isSaving, error, onCancel, onSubmit }: 
   }
 
   function updateField(field: keyof OwnerFormValues, value: string) {
-    setValues((current) => ({ ...current, [field]: value }));
+    setValues((current) => ({ ...current, [field]: field === "phone" ? normalizePhone(value) : value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
   }
 
@@ -149,11 +153,21 @@ export function OwnerForm({ owner, mode, isSaving, error, onCancel, onSubmit }: 
           <FormField
             error={errors.phone}
             helpText="Incluye codigo de pais y/o ciudad."
+            inputMode="tel"
             label="Telefono"
             maxLength={20}
+            onBeforeInput={(event) => {
+              const data = (event.nativeEvent as InputEvent).data;
+
+              if (data && /[a-zA-Z]/.test(data)) {
+                event.preventDefault();
+              }
+            }}
             onChange={(event) => updateField("phone", event.target.value)}
+            pattern="[0-9+\s()-]*"
             placeholder="Ej. +51 999 000 111"
             required
+            type="tel"
             value={values.phone}
           />
           <div className="lg:col-span-2">
