@@ -60,7 +60,6 @@ const initialPasswordForm: PasswordFormValues = {
 
 const tabs: { id: SettingsTab; label: string; adminOnly?: boolean }[] = [
   { id: "general", label: "General" },
-  { id: "preferences", label: "Preferencias" },
   { id: "security", label: "Seguridad" },
   { id: "users", label: "Usuarios", adminOnly: true },
 ];
