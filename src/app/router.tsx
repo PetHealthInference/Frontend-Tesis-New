@@ -4,6 +4,7 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { ProtectedRoute } from "../components/route/ProtectedRoute";
 import { routes } from "../config/routes";
 import { LoginPage } from "../pages/auth/LoginPage";
+import { ResetPasswordPage } from "../pages/auth/ResetPasswordPage";
 import { DashboardPage } from "../pages/dashboard/DashboardPage";
 import { ClinicalEvaluationPage } from "../pages/evaluations/ClinicalEvaluationPage";
 import { HistoryPage } from "../pages/history/HistoryPage";
@@ -26,6 +27,10 @@ export const router = createBrowserRouter([
       {
         path: "/login",
         element: <LoginPage />,
+      },
+      {
+        path: "/reset-password",
+        element: <ResetPasswordPage />,
       },
       {
         element: <ProtectedRoute />,

@@ -10,16 +10,20 @@ import {
   UserRound,
   VenusAndMars,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { AlertMessage } from "../../components/common/AlertMessage";
 import { Button } from "../../components/common/Button";
 import { Card } from "../../components/common/Card";
 import { DataTable } from "../../components/common/DataTable";
+import { Modal } from "../../components/common/Modal";
+import { PatientForm } from "../../components/patients/PatientForm";
 import { evaluationService } from "../../services/evaluation.service";
+import { ownerService } from "../../services/owner.service";
 import { patientService } from "../../services/patient.service";
 import type { Evaluation } from "../../types/evaluation";
-import type { Patient } from "../../types/patient";
+import type { Owner } from "../../types/owner";
+import type { Breed, Patient, PatientPayload, Species } from "../../types/patient";
 
 function getOwnerName(patient: Patient) {
   return [patient.owner.first_name, patient.owner.last_name].filter(Boolean).join(" ") || "Sin propietario";
@@ -84,8 +88,15 @@ export function PatientDetailPage() {
   const parsedPatientId = patientId ? Number(patientId) : null;
   const [patient, setPatient] = useState<Patient | null>(null);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [species, setSpecies] = useState<Species[]>([]);
+  const [breeds, setBreeds] = useState<Breed[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -103,10 +114,13 @@ export function PatientDetailPage() {
           patientService.getById(parsedPatientId),
           evaluationService.listByPatient(parsedPatientId).catch(() => [] as Evaluation[]),
         ]);
+        const [ownerData, speciesData] = await Promise.all([ownerService.list(), patientService.listSpecies()]);
 
         if (isMounted) {
           setPatient(patientData);
           setEvaluations(evaluationData);
+          setOwners(ownerData);
+          setSpecies(speciesData);
         }
       } catch (caughtError) {
         if (isMounted) {
@@ -126,6 +140,20 @@ export function PatientDetailPage() {
     };
   }, [parsedPatientId]);
 
+  const handleSpeciesChange = useCallback(async (speciesId: number | null) => {
+    if (!speciesId) {
+      setBreeds([]);
+      return;
+    }
+
+    try {
+      const data = await patientService.listBreeds(speciesId);
+      setBreeds(data);
+    } catch {
+      setBreeds([]);
+    }
+  }, []);
+
   if (!parsedPatientId || Number.isNaN(parsedPatientId)) {
     return <Navigate replace to="/patients" />;
   }
@@ -136,6 +164,26 @@ export function PatientDetailPage() {
 
   if (error || !patient) {
     return <AlertMessage message={error || "Paciente no encontrado."} tone="error" />;
+  }
+
+  async function handleUpdate(payload: PatientPayload) {
+    if (!patient) {
+      return;
+    }
+
+    setIsSaving(true);
+    setFormError("");
+
+    try {
+      const updatedPatient = await patientService.update(patient.id, payload);
+      setPatient(updatedPatient);
+      setSuccess("Paciente actualizado correctamente.");
+      setIsEditOpen(false);
+    } catch (caughtError) {
+      setFormError(getErrorMessage(caughtError));
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -164,15 +212,22 @@ export function PatientDetailPage() {
             <History size={19} />
             Ver historial
           </Link>
-          <Link
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
-            to={`/patients/${patient.id}/edit`}
+          <Button
+            icon={<Edit3 size={19} />}
+            onClick={() => {
+              setBreeds([]);
+              setFormError("");
+              setIsEditOpen(true);
+            }}
+            type="button"
+            variant="secondary"
           >
-            <Edit3 size={19} />
             Editar
-          </Link>
+          </Button>
         </div>
       </section>
+
+      {success ? <AlertMessage message={success} onClose={() => setSuccess("")} /> : null}
 
       <Card className="p-6 sm:p-8">
         <div className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-center">
@@ -239,6 +294,21 @@ export function PatientDetailPage() {
           />
         )}
       </Card>
+
+      <Modal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} title="Editar paciente">
+        <PatientForm
+          breeds={breeds}
+          error={formError}
+          isSaving={isSaving}
+          mode="edit"
+          onCancel={() => setIsEditOpen(false)}
+          onSpeciesChange={handleSpeciesChange}
+          onSubmit={handleUpdate}
+          owners={owners}
+          patient={patient}
+          species={species}
+        />
+      </Modal>
     </div>
   );
 }

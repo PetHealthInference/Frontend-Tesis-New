@@ -10,10 +10,12 @@ import {
   LineChart,
   PawPrint,
   Scale,
+  Search,
   Settings,
   UserRound,
   VenusAndMars,
   AlertTriangle,
+  ChevronRight,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -123,6 +125,12 @@ function primaryResult(results: PersistedInferenceResult[]) {
   return [...results].sort((a, b) => b.score - a.score)[0] ?? null;
 }
 
+type ResultListRow = {
+  evaluation: Evaluation;
+  patient: Patient;
+  result: PersistedInferenceResult;
+};
+
 export function ResultsPage() {
   const [searchParams] = useSearchParams();
   const evaluationId = searchParams.get("evaluationId");
@@ -130,6 +138,9 @@ export function ResultsPage() {
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [results, setResults] = useState<PersistedInferenceResult[]>([]);
+  const [resultRows, setResultRows] = useState<ResultListRow[]>([]);
+  const [query, setQuery] = useState("");
+  const [riskFilter, setRiskFilter] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -138,7 +149,58 @@ export function ResultsPage() {
 
     async function loadResults() {
       if (!parsedEvaluationId || Number.isNaN(parsedEvaluationId)) {
-        setIsLoading(false);
+        setIsLoading(true);
+        setError("");
+
+        try {
+          const [evaluationData, patientData] = await Promise.all([
+            evaluationService.list(),
+            patientService.list(),
+          ]);
+          const patientById = new Map(patientData.map((item) => [item.id, item]));
+          const resultEntries = await Promise.all(
+            evaluationData.map(async (item) => {
+              try {
+                const itemResults = await evaluationService.listResults(item.id);
+                return [item, primaryResult(itemResults)] as const;
+              } catch {
+                return [item, null] as const;
+              }
+            })
+          );
+
+          if (isMounted) {
+            setResultRows(
+              resultEntries
+                .map(([item, itemResult]) => {
+                  const itemPatient = patientById.get(item.patient_id);
+
+                  return itemResult && itemPatient
+                    ? {
+                        evaluation: item,
+                        patient: itemPatient,
+                        result: itemResult,
+                      }
+                    : null;
+                })
+                .filter((item): item is ResultListRow => Boolean(item))
+                .sort(
+                  (first, second) =>
+                    new Date(second.evaluation.created_at).getTime() -
+                    new Date(first.evaluation.created_at).getTime()
+                )
+            );
+          }
+        } catch (caughtError) {
+          if (isMounted) {
+            setError(getErrorMessage(caughtError));
+          }
+        } finally {
+          if (isMounted) {
+            setIsLoading(false);
+          }
+        }
+
         return;
       }
 
@@ -178,12 +240,38 @@ export function ResultsPage() {
   const result = useMemo(() => primaryResult(results), [results]);
   const facts = splitFacts(evaluation?.facts ?? []);
   const riskTone = getRiskTone(result?.risk_level);
+  const filteredResultRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return resultRows.filter((row) => {
+      const matchesQuery = normalizedQuery
+        ? [
+            row.patient.name,
+            getOwnerName(row.patient),
+            row.patient.species.name,
+            row.patient.breed?.name,
+            row.result.suggested_diagnosis,
+          ]
+            .filter(Boolean)
+            .some((value) => value!.toLowerCase().includes(normalizedQuery))
+        : true;
+      const matchesRisk = riskFilter ? getRiskTone(row.result.risk_level).label === riskFilter : true;
+
+      return matchesQuery && matchesRisk;
+    });
+  }, [query, resultRows, riskFilter]);
 
   if (!evaluationId || Number.isNaN(parsedEvaluationId)) {
     return (
-      <AlertMessage
-        message="No se recibio un identificador de evaluacion valido. Abre resultados desde una evaluacion procesada."
-        tone="error"
+      <ResultsListView
+        error={error}
+        filteredRows={filteredResultRows}
+        isLoading={isLoading}
+        onQueryChange={setQuery}
+        onRiskFilterChange={setRiskFilter}
+        query={query}
+        riskFilter={riskFilter}
+        rows={resultRows}
       />
     );
   }
@@ -355,6 +443,186 @@ export function ResultsPage() {
   );
 }
 
+type ResultsListViewProps = {
+  error: string;
+  filteredRows: ResultListRow[];
+  isLoading: boolean;
+  onQueryChange: (value: string) => void;
+  onRiskFilterChange: (value: string) => void;
+  query: string;
+  riskFilter: string;
+  rows: ResultListRow[];
+};
+
+function ResultsListView({
+  error,
+  filteredRows,
+  isLoading,
+  onQueryChange,
+  onRiskFilterChange,
+  query,
+  riskFilter,
+  rows,
+}: ResultsListViewProps) {
+  const highRiskCount = rows.filter((row) => getRiskTone(row.result.risk_level).label === "Riesgo alto").length;
+  const moderateRiskCount = rows.filter((row) => getRiskTone(row.result.risk_level).label === "Riesgo moderado").length;
+
+  return (
+    <div className="space-y-6">
+      <section className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-normal text-[#172554]">Resultados clinicos</h1>
+          <p className="mt-2 text-base text-slate-500">
+            Consulta las evaluaciones procesadas y prioriza los casos segun el nivel de riesgo.
+          </p>
+        </div>
+        <Link
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#4635D3] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3526AD]"
+          to="/evaluations"
+        >
+          <ClipboardPlus size={20} />
+          Nueva evaluacion
+        </Link>
+      </section>
+
+      {error ? <AlertMessage message={error} tone="error" /> : null}
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard icon={LineChart} label="Resultados procesados" value={String(rows.length)} />
+        <SummaryCard icon={AlertTriangle} iconClassName="bg-red-50 text-red-600" label="Riesgo alto" value={String(highRiskCount)} />
+        <SummaryCard icon={AlertTriangle} iconClassName="bg-amber-50 text-amber-600" label="Riesgo moderado" value={String(moderateRiskCount)} />
+        <SummaryCard icon={Check} iconClassName="bg-emerald-50 text-emerald-600" label="Visibles en lista" value={String(filteredRows.length)} />
+      </section>
+
+      <Card className="p-5 sm:p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end">
+          <label className="relative block min-w-[260px] flex-1">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Buscar resultado</span>
+            <Search className="pointer-events-none absolute bottom-3.5 left-4 text-slate-400" size={20} />
+            <input
+              className="h-12 w-full rounded-lg border border-slate-200 bg-white pl-12 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#4635D3] focus:ring-4 focus:ring-[#4635D3]/10"
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder="Paciente, propietario o diagnostico..."
+              value={query}
+            />
+          </label>
+          <label className="block min-w-[210px]">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Nivel de riesgo</span>
+            <select
+              className="h-12 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-[#4635D3] focus:ring-4 focus:ring-[#4635D3]/10"
+              onChange={(event) => onRiskFilterChange(event.target.value)}
+              value={riskFilter}
+            >
+              <option value="">Todos los riesgos</option>
+              <option value="Riesgo bajo">Bajo</option>
+              <option value="Riesgo moderado">Moderado</option>
+              <option value="Riesgo alto">Alto</option>
+            </select>
+          </label>
+        </div>
+      </Card>
+
+      <Card className="p-5 sm:p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-extrabold text-[#172554]">Resultados encontrados</h2>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-extrabold text-slate-500">
+              {filteredRows.length} registros
+            </span>
+          </div>
+        </div>
+
+        {isLoading ? <div className="h-72 animate-pulse rounded-lg bg-slate-100" /> : null}
+
+        {!isLoading && filteredRows.length === 0 ? (
+          <div className="grid min-h-72 place-items-center rounded-lg border border-dashed border-slate-200 bg-slate-50 px-6 text-center">
+            <div>
+              <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-violet-50 text-[#4635D3]">
+                <LineChart size={30} />
+              </span>
+              <h2 className="mt-5 text-xl font-extrabold text-[#172554]">No hay resultados procesados</h2>
+              <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+                Cuando una evaluacion clinica tenga resultados persistidos, aparecera en este listado.
+              </p>
+              <Link
+                className="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#4635D3] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3526AD]"
+                to="/evaluations"
+              >
+                <ClipboardPlus size={18} />
+                Crear evaluacion
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
+        {!isLoading && filteredRows.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-[1120px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-sm font-extrabold text-slate-600">
+                  <th className="px-4 py-4">Paciente</th>
+                  <th className="px-4 py-4">Propietario</th>
+                  <th className="px-4 py-4">Fecha</th>
+                  <th className="px-4 py-4">Diagnostico sugerido</th>
+                  <th className="px-4 py-4">Riesgo</th>
+                  <th className="px-4 py-4">Motor</th>
+                  <th className="px-4 py-4">Accion</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-600">
+                {filteredRows.map((row) => {
+                  const tone = getRiskTone(row.result.risk_level);
+
+                  return (
+                    <tr key={row.evaluation.id}>
+                      <td className="px-4 py-5">
+                        <div className="flex items-center gap-3">
+                          <span className="grid h-12 w-12 place-items-center rounded-full bg-violet-50 text-lg font-extrabold text-[#3026A6]">
+                            {getInitial(row.patient)}
+                          </span>
+                          <div>
+                            <p className="font-extrabold text-slate-800">{row.patient.name}</p>
+                            <p className="text-xs font-semibold text-slate-500">
+                              {row.patient.species.name} · {row.patient.breed?.name ?? "Sin raza"}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-5 font-semibold">{getOwnerName(row.patient)}</td>
+                      <td className="whitespace-nowrap px-4 py-5 font-semibold">{formatDate(row.evaluation.created_at)}</td>
+                      <td className="max-w-[260px] px-4 py-5 font-semibold">{row.result.suggested_diagnosis}</td>
+                      <td className="px-4 py-5">
+                        <span className={cn("inline-flex rounded-md px-3 py-1 text-xs font-extrabold", tone.className)}>
+                          {tone.label}
+                        </span>
+                      </td>
+                      <td className="max-w-[220px] px-4 py-5 font-semibold">
+                        {row.result.inference_method ?? "Reglas IF-THEN + inferencia clinica"}
+                      </td>
+                      <td className="px-4 py-5">
+                        <Link
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-violet-200 bg-white px-4 text-sm font-semibold text-[#4635D3] shadow-sm transition hover:bg-violet-50"
+                          to={`/results?evaluationId=${row.evaluation.id}`}
+                        >
+                          Ver resultado
+                          <ChevronRight size={17} />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="border-t border-slate-100 px-3 py-4 text-sm font-semibold text-slate-500">
+              Mostrando 1 a {filteredRows.length} de {filteredRows.length} resultados
+            </div>
+          </div>
+        ) : null}
+      </Card>
+    </div>
+  );
+}
+
 function PageHeader({ patientId }: { patientId?: number }) {
   return (
     <section className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
@@ -366,8 +634,12 @@ function PageHeader({ patientId }: { patientId?: number }) {
           <span className="text-slate-300">/</span>
           <span className="text-slate-500">Detalle del resultado</span>
         </div>
-        <h1 className="text-3xl font-extrabold tracking-normal text-[#172554]">Resultado de la evaluacion</h1>
-        <p className="mt-2 text-base text-slate-500">Interpretacion generada a partir de la evaluacion clinica procesada.</p>
+        <h1 className="text-2xl font-extrabold leading-tight tracking-normal text-[#172554]">
+          Resultado de la evaluacion
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          Interpretacion generada a partir de la evaluacion clinica procesada.
+        </p>
       </div>
       <div className="flex flex-wrap gap-3">
         <Link

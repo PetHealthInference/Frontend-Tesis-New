@@ -1,6 +1,8 @@
-import { ChevronDown, PawPrint, X } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { ChevronDown, LogOut, PawPrint, X } from "lucide-react";
+import { useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
 import { routes } from "../../config/routes";
+import { useAuth } from "../../hooks/useAuth";
 import type { User } from "../../types/user";
 import { cn } from "../../utils/cn";
 
@@ -25,8 +27,18 @@ function getInitials(fullName?: string) {
 }
 
 export function Sidebar({ currentUser, isOpen, onClose }: SidebarProps) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const fullName = currentUser?.full_name ?? "Usuario autenticado";
   const roleName = formatRole(currentUser?.role?.name);
+
+  function handleLogout() {
+    logout();
+    setIsUserMenuOpen(false);
+    onClose();
+    navigate("/login", { replace: true });
+  }
 
   return (
     <>
@@ -79,8 +91,14 @@ export function Sidebar({ currentUser, isOpen, onClose }: SidebarProps) {
           })}
         </nav>
 
-        <div className="border-t border-white/10 p-5">
-          <button className="flex w-full items-center gap-4 rounded-lg p-3 text-left transition hover:bg-white/10">
+        <div className="relative border-t border-white/10 p-5">
+          <button
+            aria-expanded={isUserMenuOpen}
+            aria-haspopup="menu"
+            className="flex w-full items-center gap-4 rounded-lg p-3 text-left transition hover:bg-white/10"
+            onClick={() => setIsUserMenuOpen((current) => !current)}
+            type="button"
+          >
             <span className="grid h-14 w-14 place-items-center rounded-full bg-white text-sm font-extrabold text-[#3026A6]">
               {getInitials(fullName)}
             </span>
@@ -88,8 +106,23 @@ export function Sidebar({ currentUser, isOpen, onClose }: SidebarProps) {
               <span className="block truncate font-bold">{fullName}</span>
               <span className="block text-sm text-white/72">{roleName}</span>
             </span>
-            <ChevronDown size={18} />
+            <ChevronDown className={cn("transition", isUserMenuOpen && "rotate-180")} size={18} />
           </button>
+
+          {isUserMenuOpen ? (
+            <div className="absolute bottom-[calc(100%-0.5rem)] left-5 right-5 rounded-lg border border-white/10 bg-white p-2 text-slate-700 shadow-2xl">
+
+              <button
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50"
+                onClick={handleLogout}
+                role="menuitem"
+                type="button"
+              >
+                <LogOut size={18} />
+                Cerrar sesion
+              </button>
+            </div>
+          ) : null}
         </div>
       </aside>
     </>

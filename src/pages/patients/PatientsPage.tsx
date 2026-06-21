@@ -1,10 +1,15 @@
 import { CalendarPlus, Cat, Dog, Edit3, Eye, PawPrint, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { AlertMessage } from "../../components/common/AlertMessage";
+import { Button } from "../../components/common/Button";
 import { Card } from "../../components/common/Card";
+import { Modal } from "../../components/common/Modal";
+import { PatientForm } from "../../components/patients/PatientForm";
+import { ownerService } from "../../services/owner.service";
 import { patientService } from "../../services/patient.service";
-import type { Patient } from "../../types/patient";
+import type { Owner } from "../../types/owner";
+import type { Breed, Patient, PatientPayload, Species } from "../../types/patient";
 import { cn } from "../../utils/cn";
 
 type FilterMode = "all" | "dogs" | "cats";
@@ -84,10 +89,17 @@ function getErrorMessage(error: unknown) {
 export function PatientsPage() {
   const location = useLocation();
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [species, setSpecies] = useState<Species[]>([]);
+  const [breeds, setBreeds] = useState<Breed[]>([]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterMode>("all");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [patientToEdit, setPatientToEdit] = useState<Patient | null>(null);
   const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
   const [success, setSuccess] = useState((location.state as LocationState | null)?.message ?? "");
 
   useEffect(() => {
@@ -98,10 +110,16 @@ export function PatientsPage() {
       setError("");
 
       try {
-        const data = await patientService.list();
+        const [patientData, ownerData, speciesData] = await Promise.all([
+          patientService.list(),
+          ownerService.list(),
+          patientService.listSpecies(),
+        ]);
 
         if (isMounted) {
-          setPatients(data);
+          setPatients(patientData);
+          setOwners(ownerData);
+          setSpecies(speciesData);
         }
       } catch (caughtError) {
         if (isMounted) {
@@ -120,6 +138,68 @@ export function PatientsPage() {
       isMounted = false;
     };
   }, []);
+
+  const handleSpeciesChange = useCallback(async (speciesId: number | null) => {
+    if (!speciesId) {
+      setBreeds([]);
+      return;
+    }
+
+    try {
+      const data = await patientService.listBreeds(speciesId);
+      setBreeds(data);
+    } catch {
+      setBreeds([]);
+    }
+  }, []);
+
+  function openCreateModal() {
+    setBreeds([]);
+    setFormError("");
+    setIsCreateOpen(true);
+  }
+
+  function openEditModal(patient: Patient) {
+    setBreeds([]);
+    setFormError("");
+    setPatientToEdit(patient);
+  }
+
+  async function handleCreate(payload: PatientPayload) {
+    setIsSaving(true);
+    setFormError("");
+
+    try {
+      const patient = await patientService.create(payload);
+      setPatients((current) => [patient, ...current]);
+      setSuccess("Paciente registrado correctamente.");
+      setIsCreateOpen(false);
+    } catch (caughtError) {
+      setFormError(getErrorMessage(caughtError));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleUpdate(payload: PatientPayload) {
+    if (!patientToEdit) {
+      return;
+    }
+
+    setIsSaving(true);
+    setFormError("");
+
+    try {
+      const patient = await patientService.update(patientToEdit.id, payload);
+      setPatients((current) => current.map((item) => (item.id === patient.id ? patient : item)));
+      setSuccess("Paciente actualizado correctamente.");
+      setPatientToEdit(null);
+    } catch (caughtError) {
+      setFormError(getErrorMessage(caughtError));
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   const filteredPatients = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -148,20 +228,21 @@ export function PatientsPage() {
           <h1 className="text-3xl font-extrabold tracking-normal text-[#172554]">Gestion de Pacientes</h1>
           <p className="mt-2 text-base text-slate-500">Consulta y administra los pacientes asociados a propietarios.</p>
         </div>
-        <Link
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#4635D3] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3526AD] focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30 sm:min-h-12 sm:px-5"
-          to="/patients/new"
+        <Button
+          className="sm:min-h-12 sm:px-5"
+          icon={<PawPrint size={21} />}
+          onClick={openCreateModal}
+          type="button"
         >
-          <PawPrint size={21} />
           Nuevo paciente
-        </Link>
+        </Button>
       </section>
 
       {success ? <AlertMessage message={success} onClose={() => setSuccess("")} /> : null}
       {error ? <AlertMessage message={error} tone="error" onClose={() => setError("")} /> : null}
 
       <Card className="p-5 sm:p-6">
-        <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center">
+        <div className="mb-7 flex flex-col gap-4 xl:flex-row xl:items-center">
           <label className="relative block flex-1">
             <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={22} />
             <input
@@ -171,29 +252,28 @@ export function PatientsPage() {
               value={query}
             />
           </label>
-        </div>
+          <div className="flex flex-wrap justify-start gap-3 xl:justify-end">
+            {filters.map((item) => {
+              const Icon = item.icon;
 
-        <div className="mb-7 flex flex-wrap gap-3">
-          {filters.map((item) => {
-            const Icon = item.icon;
-
-            return (
-              <button
-                className={cn(
-                  "inline-flex h-12 items-center gap-2 rounded-lg px-7 text-sm font-bold transition",
-                  filter === item.value
-                    ? "bg-[#4635D3] text-white shadow-sm"
-                    : "border border-slate-200 bg-white text-slate-600 hover:bg-violet-50"
-                )}
-                key={item.value}
-                onClick={() => setFilter(item.value)}
-                type="button"
-              >
-                {Icon ? <Icon size={19} /> : null}
-                {item.label}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  className={cn(
+                    "inline-flex h-12 items-center gap-2 rounded-lg px-7 text-sm font-bold transition",
+                    filter === item.value
+                      ? "bg-[#4635D3] text-white shadow-sm"
+                      : "border border-slate-200 bg-white text-slate-600 hover:bg-violet-50"
+                  )}
+                  key={item.value}
+                  onClick={() => setFilter(item.value)}
+                  type="button"
+                >
+                  {Icon ? <Icon size={19} /> : null}
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {isLoading ? <PatientsLoadingState /> : null}
@@ -208,13 +288,14 @@ export function PatientsPage() {
               <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
                 Registra un paciente o ajusta los filtros para encontrar resultados.
               </p>
-              <Link
-                className="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#4635D3] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3526AD] focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
-                to="/patients/new"
+              <Button
+                className="mt-5"
+                icon={<PawPrint size={18} />}
+                onClick={openCreateModal}
+                type="button"
               >
-                <PawPrint size={18} />
                 Registrar paciente
-              </Link>
+              </Button>
             </div>
           </div>
         ) : null}
@@ -269,13 +350,15 @@ export function PatientsPage() {
                           <Eye size={17} />
                           Ver detalle
                         </Link>
-                        <Link
-                          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
-                          to={`/patients/${patient.id}/edit`}
+                        <Button
+                          className="h-10 px-3"
+                          onClick={() => openEditModal(patient)}
+                          type="button"
+                          variant="secondary"
                         >
                           <Edit3 size={17} />
                           Editar
-                        </Link>
+                        </Button>
                         <Link
                           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
                           to={`/evaluations?patientId=${patient.id}`}
@@ -308,6 +391,37 @@ export function PatientsPage() {
           </div>
         ) : null}
       </Card>
+
+      <Modal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="Nuevo paciente">
+        <PatientForm
+          breeds={breeds}
+          error={formError}
+          isSaving={isSaving}
+          mode="create"
+          onCancel={() => setIsCreateOpen(false)}
+          onSpeciesChange={handleSpeciesChange}
+          onSubmit={handleCreate}
+          owners={owners}
+          species={species}
+        />
+      </Modal>
+
+      <Modal isOpen={Boolean(patientToEdit)} onClose={() => setPatientToEdit(null)} title="Editar paciente">
+        {patientToEdit ? (
+          <PatientForm
+            breeds={breeds}
+            error={formError}
+            isSaving={isSaving}
+            mode="edit"
+            onCancel={() => setPatientToEdit(null)}
+            onSpeciesChange={handleSpeciesChange}
+            onSubmit={handleUpdate}
+            owners={owners}
+            patient={patientToEdit}
+            species={species}
+          />
+        ) : null}
+      </Modal>
     </div>
   );
 }

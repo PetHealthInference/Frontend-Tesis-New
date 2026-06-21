@@ -1,0 +1,7 @@
+import type { PersistedInferenceResult } from "../../types/evaluation";
+import { ActivatedRulesPanel } from "./ActivatedRulesPanel";
+
+export function EvaluationResultsPanel({ results }: { results: PersistedInferenceResult[] }) {
+  if (!results.length) return <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Aún no existen resultados procesados.</p>;
+  return <div className="space-y-5">{results.map((result) => <article className="rounded-lg border border-slate-200 p-5" key={result.id}><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-extrabold text-slate-800">{result.suggested_diagnosis}</h3><p className="mt-2 text-sm text-slate-600">{result.explanation}</p></div><span className="rounded-full bg-violet-50 px-3 py-1 text-sm font-bold text-violet-700">Riesgo {result.risk_level}</span></div><dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2"><div><dt className="font-semibold text-slate-500">Probabilidad Bayes</dt><dd className="font-bold text-slate-700">{result.probability == null ? "No disponible" : `${(result.probability * 100).toFixed(1)}%`}</dd></div><div><dt className="font-semibold text-slate-500">Método</dt><dd className="font-bold text-slate-700">{result.inference_method ?? "No registrado"}</dd></div></dl><h4 className="mt-5 font-bold text-slate-700">Reglas activadas</h4><div className="mt-3"><ActivatedRulesPanel rules={result.activated_rules} /></div></article>)}</div>;
+}
