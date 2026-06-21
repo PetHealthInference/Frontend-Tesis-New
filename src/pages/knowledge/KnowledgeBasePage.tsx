@@ -163,15 +163,21 @@ export function KnowledgeBasePage() {
 
   const filteredDiseases = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return (data?.diseases ?? []).filter(
-      (disease) =>
-        matchesSpecies(disease.species_id, speciesFilter) &&
-        (!normalizedQuery ||
-          [disease.name, disease.description, speciesName(disease.species_id)]
-            .filter(Boolean)
-            .some((value) => value!.toLowerCase().includes(normalizedQuery)))
-    );
-  }, [data?.diseases, query, speciesFilter]);
+    return (data?.diseases ?? [])
+      .filter(
+        (disease) =>
+          matchesSpecies(disease.species_id, speciesFilter) &&
+          (!normalizedQuery ||
+            [disease.name, disease.description, speciesName(disease.species_id)]
+              .filter(Boolean)
+              .some((value) => value!.toLowerCase().includes(normalizedQuery)))
+      )
+      .sort((left, right) => {
+        const leftRules = (data?.rules ?? []).filter((rule) => rule.is_active && rule.disease_id === left.id).length;
+        const rightRules = (data?.rules ?? []).filter((rule) => rule.is_active && rule.disease_id === right.id).length;
+        return rightRules - leftRules || left.species_id - right.species_id || left.name.localeCompare(right.name);
+      });
+  }, [data?.diseases, data?.rules, query, speciesFilter]);
 
   const filteredSymptoms = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -296,8 +302,10 @@ export function KnowledgeBasePage() {
                       <span className="min-w-0 flex-1">
                         <span className="block font-extrabold text-[#172554]">{disease.name}</span>
                         <span className="mt-1 block text-xs font-semibold text-slate-500">
-                          {speciesName(disease.species_id)} · {filteredSymptoms.filter((s) => s.species_id === disease.species_id).length} sintomas ·{" "}
-                          {filteredRules.filter((rule) => rule.disease_id === disease.id).length} reglas
+                          {speciesName(disease.species_id)} / {filteredSymptoms.filter((item) => item.species_id === disease.species_id).length} sintomas / {(() => {
+                            const count = filteredRules.filter((rule) => rule.is_active && rule.disease_id === disease.id).length;
+                            return count ? `${count} reglas IF-THEN` : "Perfil Bayes sin regla directa";
+                          })()}
                         </span>
                       </span>
                     </ListButton>
@@ -342,7 +350,7 @@ export function KnowledgeBasePage() {
                       <span className="min-w-0 flex-1">
                         <span className="block font-extrabold text-[#172554]">{variable.name}</span>
                         <span className="mt-1 block text-xs font-semibold text-slate-500">
-                          {variable.data_type} · {speciesName(variable.species_id)} · {variableRange(variable)}
+                          {variable.data_type} Â· {speciesName(variable.species_id)} Â· {variableRange(variable)}
                         </span>
                       </span>
                     </ListButton>
@@ -369,7 +377,7 @@ export function KnowledgeBasePage() {
                           {rule.code} - {rule.name}
                         </span>
                         <span className="mt-1 block text-xs font-semibold text-slate-500">
-                          {rule.conditions.length} condiciones · {rule.is_active ? "Activa" : "Inactiva"}
+                          {rule.conditions.length} condiciones Â· {rule.is_active ? "Activa" : "Inactiva"}
                         </span>
                       </span>
                     </ListButton>

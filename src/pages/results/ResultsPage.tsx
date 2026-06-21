@@ -634,8 +634,12 @@ function PageHeader({ patientId }: { patientId?: number }) {
           <span className="text-slate-300">/</span>
           <span className="text-slate-500">Detalle del resultado</span>
         </div>
-        <h1 className="text-3xl font-extrabold tracking-normal text-[#172554]">Resultado de la evaluacion</h1>
-        <p className="mt-2 text-base text-slate-500">Interpretacion generada a partir de la evaluacion clinica procesada.</p>
+        <h1 className="text-2xl font-extrabold leading-tight tracking-normal text-[#172554]">
+          Resultado de la evaluacion
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          Interpretacion generada a partir de la evaluacion clinica procesada.
+        </p>
       </div>
       <div className="flex flex-wrap gap-3">
         <Link

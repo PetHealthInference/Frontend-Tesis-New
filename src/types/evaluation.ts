@@ -69,6 +69,8 @@ export type PersistedActivatedRule = {
   rule_id: number;
   fulfilled_conditions: unknown;
   justification: string;
+  rule_code?: string | null;
+  rule_version?: number | null;
 };
 
 export type PersistedInferenceResult = {
