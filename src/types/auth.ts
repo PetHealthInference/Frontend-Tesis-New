@@ -16,6 +16,15 @@ export type ForgotPasswordResponse = {
   message?: string;
 };
 
+export type ChangePasswordRequest = {
+  current_password: string;
+  new_password: string;
+};
+
+export type ChangePasswordResponse = {
+  message: string;
+};
+
 export type AuthState = {
   isAuthenticated: boolean;
   token: string | null;

@@ -34,6 +34,14 @@ type SettingsTab = "general" | "preferences" | "security" | "users";
 
 type FormErrors = Partial<Record<keyof UserFormValues, string>>;
 
+type PasswordFormValues = {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+};
+
+type PasswordFormErrors = Partial<Record<keyof PasswordFormValues, string>>;
+
 const adminRoleId = 1;
 const veterinarianRoleId = 2;
 
@@ -42,6 +50,12 @@ const initialUserForm: UserFormValues = {
   email: "",
   password: "",
   role_id: String(veterinarianRoleId),
+};
+
+const initialPasswordForm: PasswordFormValues = {
+  current_password: "",
+  new_password: "",
+  confirm_password: "",
 };
 
 const tabs: { id: SettingsTab; label: string; adminOnly?: boolean }[] = [
@@ -93,6 +107,26 @@ function validateEditUserForm(values: UserFormValues): FormErrors {
   return errors;
 }
 
+function validatePasswordForm(values: PasswordFormValues): PasswordFormErrors {
+  const errors: PasswordFormErrors = {};
+
+  if (values.current_password.length < 8) {
+    errors.current_password = "La contrasena actual debe tener al menos 8 caracteres.";
+  }
+
+  if (values.new_password.length < 8) {
+    errors.new_password = "La nueva contrasena debe tener al menos 8 caracteres.";
+  } else if (values.new_password === values.current_password) {
+    errors.new_password = "La nueva contrasena debe ser diferente de la actual.";
+  }
+
+  if (values.confirm_password !== values.new_password) {
+    errors.confirm_password = "Las contrasenas no coinciden.";
+  }
+
+  return errors;
+}
+
 function roleLabel(role?: string | null) {
   if (role === "admin") {
     return "ADMINISTRADOR";
@@ -126,6 +160,9 @@ export function SettingsPage() {
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [editUserForm, setEditUserForm] = useState<UserFormValues>(initialUserForm);
   const [editFormErrors, setEditFormErrors] = useState<FormErrors>({});
+  const [passwordForm, setPasswordForm] = useState<PasswordFormValues>(initialPasswordForm);
+  const [passwordFormErrors, setPasswordFormErrors] = useState<PasswordFormErrors>({});
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -192,6 +229,37 @@ export function SettingsPage() {
   function handleLogout() {
     logout();
     navigate("/login", { replace: true });
+  }
+
+  function updatePasswordForm(field: keyof PasswordFormValues, value: string) {
+    setPasswordForm((current) => ({ ...current, [field]: value }));
+    setPasswordFormErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  async function handleChangePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextErrors = validatePasswordForm(passwordForm);
+    setPasswordFormErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setError("");
+
+    try {
+      const response = await authService.changePassword({
+        current_password: passwordForm.current_password,
+        new_password: passwordForm.new_password,
+      });
+      setPasswordForm(initialPasswordForm);
+      setMessage(response.message);
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setIsChangingPassword(false);
+    }
   }
 
   async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
@@ -425,14 +493,39 @@ export function SettingsPage() {
               <Lock size={24} />
               Cambio de contrasena
             </h2>
-            <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm font-semibold text-amber-700">
-              El backend actual no expone un endpoint para cambio de contrasena. El flujo queda preparado para integrarse cuando
-              exista la ruta correspondiente.
-            </div>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <FormField disabled label="Contrasena actual" placeholder="No disponible" type="password" />
-              <FormField disabled label="Nueva contrasena" placeholder="No disponible" type="password" />
-            </div>
+            <form className="space-y-4" onSubmit={handleChangePassword}>
+              <FormField
+                error={passwordFormErrors.current_password}
+                label="Contrasena actual"
+                minLength={8}
+                onChange={(event) => updatePasswordForm("current_password", event.target.value)}
+                required
+                type="password"
+                value={passwordForm.current_password}
+              />
+              <FormField
+                error={passwordFormErrors.new_password}
+                helpText="Minimo 8 caracteres y diferente de la contrasena actual."
+                label="Nueva contrasena"
+                minLength={8}
+                onChange={(event) => updatePasswordForm("new_password", event.target.value)}
+                required
+                type="password"
+                value={passwordForm.new_password}
+              />
+              <FormField
+                error={passwordFormErrors.confirm_password}
+                label="Confirmar nueva contrasena"
+                minLength={8}
+                onChange={(event) => updatePasswordForm("confirm_password", event.target.value)}
+                required
+                type="password"
+                value={passwordForm.confirm_password}
+              />
+              <Button disabled={isChangingPassword} icon={<Save size={18} />} type="submit">
+                {isChangingPassword ? "Actualizando..." : "Actualizar contrasena"}
+              </Button>
+            </form>
           </Card>
         </section>
       ) : null}

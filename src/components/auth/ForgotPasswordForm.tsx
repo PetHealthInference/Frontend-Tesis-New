@@ -51,7 +51,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
   return (
     <div>
       <div className="mb-6 text-center">
-        <h2 className="text-2xl font-extrabold text-[#172554] sm:text-[1.7rem]">Recuperar contrasena</h2>
+        <h2 className="text-2xl font-extrabold text-[#172554] sm:text-[1.7rem]">Recuperar contraseña</h2>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
           Ingresa tu correo y te enviaremos instrucciones si existe una cuenta asociada.
         </p>
