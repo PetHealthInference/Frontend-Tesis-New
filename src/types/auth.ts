@@ -13,7 +13,16 @@ export type ForgotPasswordRequest = {
 };
 
 export type ForgotPasswordResponse = {
-  message?: string;
+  message: string;
+};
+
+export type ResetPasswordRequest = {
+  token: string;
+  new_password: string;
+};
+
+export type ResetPasswordResponse = {
+  message: string;
 };
 
 export type ChangePasswordRequest = {

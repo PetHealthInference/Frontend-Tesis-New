@@ -5,6 +5,8 @@ import type {
   ForgotPasswordResponse,
   LoginRequest,
   LoginResponse,
+  ResetPasswordRequest,
+  ResetPasswordResponse,
 } from "../types/auth";
 import type { User } from "../types/user";
 import { storage } from "../utils/storage";
@@ -17,21 +19,12 @@ export const authService = {
     return data;
   },
   async forgotPassword(payload: ForgotPasswordRequest) {
-    try {
-      const { data } = await api.post<ForgotPasswordResponse>("/api/v1/auth/forgot-password", payload);
-      return data;
-    } catch (error) {
-      const status = (error as { response?: { status?: number } }).response?.status;
-
-      if (status === 404 || status === 405 || status === 501 || status == null) {
-        await new Promise((resolve) => setTimeout(resolve, 700));
-        return {
-          message: "Si el correo existe, recibiras instrucciones.",
-        };
-      }
-
-      throw error;
-    }
+    const { data } = await api.post<ForgotPasswordResponse>("/api/v1/auth/forgot-password", payload);
+    return data;
+  },
+  async resetPassword(payload: ResetPasswordRequest) {
+    const { data } = await api.post<ResetPasswordResponse>("/api/v1/auth/reset-password", payload);
+    return data;
   },
   async getCurrentUser() {
     const { data } = await api.get<User>("/api/v1/auth/me");
