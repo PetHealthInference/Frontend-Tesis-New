@@ -44,7 +44,7 @@ export function formatDate(value?: string | null, withTime = false) {
 }
 
 export function primaryResult(results: PersistedInferenceResult[]) {
-  return [...results].sort((a, b) => b.score - a.score)[0] ?? null;
+  return [...results].sort((a, b) => (b.probability ?? -1) - (a.probability ?? -1) || b.score - a.score)[0] ?? null;
 }
 
 export function riskLabel(risk?: string | null) {

@@ -101,6 +101,17 @@ function getRiskTone(riskLevel?: string | null) {
   };
 }
 
+function probabilityLabel(probability?: number | null) {
+  return probability == null ? "No disponible" : `${(probability * 100).toFixed(1)}%`;
+}
+
+function riskRangeLabel(riskLevel?: string | null) {
+  const risk = riskLevel?.toLowerCase() ?? "";
+  if (risk.includes("alto")) return "70% a 100%";
+  if (risk.includes("moder")) return "40% a menos de 70%";
+  return "0% a menos de 40%";
+}
+
 function getErrorMessage(error: unknown) {
   if (error && typeof error === "object" && "response" in error) {
     const response = (error as { response?: { data?: { detail?: string } } }).response;
@@ -122,7 +133,7 @@ function splitFacts(facts: ClinicalFactOut[] = []) {
 }
 
 function primaryResult(results: PersistedInferenceResult[]) {
-  return [...results].sort((a, b) => b.score - a.score)[0] ?? null;
+  return [...results].sort((a, b) => (b.probability ?? -1) - (a.probability ?? -1) || b.score - a.score)[0] ?? null;
 }
 
 type ResultListRow = {
@@ -354,7 +365,7 @@ export function ResultsPage() {
             {riskTone.label}
           </span>
         </SummaryCard>
-        <SummaryCard icon={Check} iconClassName="bg-emerald-50 text-emerald-600" label="Estado de procesamiento" value="Evaluacion procesada" />
+        <SummaryCard icon={LineChart} iconClassName="bg-blue-50 text-blue-600" label="Probabilidad calculada" value={probabilityLabel(result.probability)} />
         <SummaryCard icon={Settings} label="Motor aplicado" value={result.inference_method ?? "Reglas IF-THEN + inferencia clinica"} />
       </section>
 
@@ -370,7 +381,7 @@ export function ResultsPage() {
                 "El resultado sugerido se obtuvo a partir de los sintomas y variables clinicas registradas en la evaluacion."}
             </p>
             <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
-              Este resultado apoya la evaluacion clinica inicial y no reemplaza el juicio profesional del medico veterinario.
+              El {probabilityLabel(result.probability)} se ubica en el rango de riesgo {result.risk_level.toLowerCase()} ({riskRangeLabel(result.risk_level)}). Las reglas IF-THEN y las variables registradas sustentan esta inferencia; no reemplaza el juicio profesional del médico veterinario.
             </div>
           </div>
         </div>
@@ -386,11 +397,12 @@ export function ResultsPage() {
             <p className="rounded-lg bg-slate-50 p-4 text-sm font-semibold text-slate-500">No hay reglas activadas asociadas.</p>
           ) : (
             <DataTable
-              columns={["Regla", "Justificacion"]}
+              columns={["Regla", "Condiciones cumplidas", "Justificacion"]}
               rows={result.activated_rules}
               renderRow={(rule) => (
                 <tr key={rule.id}>
-                  <td className="whitespace-nowrap px-5 py-3 font-extrabold text-slate-700">#{rule.rule_id}</td>
+                  <td className="whitespace-nowrap px-5 py-3 font-extrabold text-slate-700">{rule.rule_code ?? `#${rule.rule_id}`}</td>
+                  <td className="px-5 py-3">{Array.isArray(rule.fulfilled_conditions) ? rule.fulfilled_conditions.map(String).join(" · ") : String(rule.fulfilled_conditions ?? "Condiciones registradas")}</td>
                   <td className="px-5 py-3">{rule.justification || "Regla activada por condiciones cumplidas."}</td>
                 </tr>
               )}

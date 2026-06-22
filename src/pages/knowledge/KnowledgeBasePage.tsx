@@ -44,11 +44,11 @@ function getErrorMessage(error: unknown) {
 
 function speciesName(speciesId?: number | null) {
   if (speciesId === 1) {
-    return "Canino";
+    return "Perro";
   }
 
   if (speciesId === 2) {
-    return "Felino";
+    return "Gato";
   }
 
   return "General";
@@ -703,7 +703,7 @@ function RiskLevelsView({
               </tr>
             )}
           />
-          <InfoNote text="La clasificacion de riesgo considera una logica acumulativa: un paciente puede cambiar de nivel conforme se registren mas datos clinicos." />
+          <InfoNote text="La clasificación depende del porcentaje calculado: bajo de 0% a menos de 40%, moderado de 40% a menos de 70% y alto de 70% a 100%. Las reglas IF–THEN activadas muestran las condiciones clínicas que sustentan ese cálculo." />
         </Card>
       </div>
     </div>

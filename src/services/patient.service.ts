@@ -28,9 +28,18 @@ export const patientService = {
   },
 
   async listBreeds(speciesId?: number) {
-    const { data } = await api.get<Breed[]>("/api/v1/breeds", {
-      params: speciesId ? { species_id: speciesId } : undefined,
-    });
-    return data;
+    const pageSize = 100;
+    const breeds: Breed[] = [];
+
+    for (let skip = 0; ; skip += pageSize) {
+      const { data } = await api.get<Breed[]>("/api/v1/breeds", {
+        params: { ...(speciesId ? { species_id: speciesId } : {}), limit: pageSize, skip },
+      });
+      breeds.push(...data);
+
+      if (data.length < pageSize) {
+        return breeds;
+      }
+    }
   },
 };
