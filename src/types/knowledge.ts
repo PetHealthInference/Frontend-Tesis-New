@@ -14,6 +14,7 @@ export type RuleCondition = {
   variable_key: string;
   operator: string;
   expected_value: string | number | boolean;
+  logical_group?: number;
 };
 
 export type Rule = {
