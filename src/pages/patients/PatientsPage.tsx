@@ -1,9 +1,10 @@
-import { CalendarPlus, Cat, Dog, Edit3, Eye, PawPrint, Search } from "lucide-react";
+import { CalendarPlus, Cat, Dog, Edit3, Eye, PawPrint, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { AlertMessage } from "../../components/common/AlertMessage";
 import { Button } from "../../components/common/Button";
 import { Card } from "../../components/common/Card";
+import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { Modal } from "../../components/common/Modal";
 import { PatientForm } from "../../components/patients/PatientForm";
 import { ownerService } from "../../services/owner.service";
@@ -98,6 +99,8 @@ export function PatientsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [patientToEdit, setPatientToEdit] = useState<Patient | null>(null);
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
   const [success, setSuccess] = useState((location.state as LocationState | null)?.message ?? "");
@@ -198,6 +201,26 @@ export function PatientsPage() {
       setFormError(getErrorMessage(caughtError));
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!patientToDelete) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setError("");
+
+    try {
+      await patientService.remove(patientToDelete.id);
+      setPatients((current) => current.filter((patient) => patient.id !== patientToDelete.id));
+      setSuccess(`Paciente ${patientToDelete.name} eliminado correctamente.`);
+      setPatientToDelete(null);
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -366,6 +389,15 @@ export function PatientsPage() {
                           <CalendarPlus size={17} />
                           Nueva evaluacion
                         </Link>
+                        <Button
+                          className="h-10 px-3 border-red-200 text-red-600 hover:bg-red-50"
+                          onClick={() => setPatientToDelete(patient)}
+                          type="button"
+                          variant="secondary"
+                        >
+                          <Trash2 size={17} />
+                          Eliminar
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -422,6 +454,20 @@ export function PatientsPage() {
           />
         ) : null}
       </Modal>
+
+      <ConfirmDialog
+        confirmLabel="Eliminar"
+        isLoading={isDeleting}
+        isOpen={Boolean(patientToDelete)}
+        message={
+          patientToDelete
+            ? `Se eliminara a ${patientToDelete.name}. Esta accion no se puede deshacer.`
+            : ""
+        }
+        onCancel={() => setPatientToDelete(null)}
+        onConfirm={handleDelete}
+        title="Eliminar paciente"
+      />
     </div>
   );
 }
