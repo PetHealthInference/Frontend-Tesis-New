@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import { AppLayout } from "../components/layout/AppLayout";
+import { AdminRoute } from "../components/route/AdminRoute";
 import { ProtectedRoute } from "../components/route/ProtectedRoute";
 import { routes } from "../config/routes";
 import { LoginPage } from "../pages/auth/LoginPage";
@@ -18,6 +19,7 @@ import { PatientFormPage } from "../pages/patients/PatientFormPage";
 import { PatientsPage } from "../pages/patients/PatientsPage";
 import { PlaceholderPage } from "../pages/placeholder/PlaceholderPage";
 import { ResultsPage } from "../pages/results/ResultsPage";
+import { RulesAdminPage } from "../pages/rules/RulesAdminPage";
 import { SettingsPage } from "../pages/settings/SettingsPage";
 
 export const router = createBrowserRouter([
@@ -52,6 +54,10 @@ export const router = createBrowserRouter([
               { path: "results", element: <ResultsPage /> },
               { path: "history", element: <HistoryPage /> },
               { path: "knowledge", element: <KnowledgeBasePage /> },
+              {
+                element: <AdminRoute />,
+                children: [{ path: "rules", element: <RulesAdminPage /> }],
+              },
               { path: "settings", element: <SettingsPage /> },
               ...routes
                 .filter(
@@ -63,6 +69,7 @@ export const router = createBrowserRouter([
                     route.path !== "/results" &&
                     route.path !== "/history" &&
                     route.path !== "/knowledge" &&
+                    route.path !== "/rules" &&
                     route.path !== "/settings"
                 )
                 .map((route) => ({

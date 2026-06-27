@@ -28,7 +28,7 @@ function getInitials(fullName?: string) {
 
 export function Sidebar({ currentUser, isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { isAdmin, logout } = useAuth();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const fullName = currentUser?.full_name ?? "Usuario autenticado";
   const roleName = formatRole(currentUser?.role?.name);
@@ -68,7 +68,7 @@ export function Sidebar({ currentUser, isOpen, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 space-y-2 px-5">
-          {routes.map((route) => {
+          {routes.filter((route) => !route.adminOnly || isAdmin).map((route) => {
             const Icon = route.icon;
 
             return (

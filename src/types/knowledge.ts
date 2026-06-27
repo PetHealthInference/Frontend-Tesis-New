@@ -17,6 +17,30 @@ export type RuleCondition = {
   logical_group?: number;
 };
 
+export type RuleConditionPayload = {
+  variable_key: string;
+  operator: string;
+  expected_value: string | number | boolean;
+  logical_group: number;
+};
+
+export type RulePayload = {
+  code: string;
+  name: string;
+  disease_id: number;
+  risk_level_id: number;
+  risk_level?: string;
+  weight: number;
+  priority: number;
+  version: number;
+  is_active: boolean;
+  conditions: RuleConditionPayload[];
+};
+
+export type RuleStatusPayload = {
+  is_active: boolean;
+};
+
 export type Rule = {
   id: number;
   code: string;

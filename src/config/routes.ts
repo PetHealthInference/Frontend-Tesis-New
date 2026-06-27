@@ -4,6 +4,7 @@ import {
   FileClock,
   Home,
   LineChart,
+  Network,
   PawPrint,
   Settings,
   Users,
@@ -14,6 +15,7 @@ export type AppRoute = {
   path: string;
   label: string;
   icon: LucideIcon;
+  adminOnly?: boolean;
 };
 
 export const routes: AppRoute[] = [
@@ -22,8 +24,8 @@ export const routes: AppRoute[] = [
   { path: "/patients", label: "Pacientes", icon: PawPrint },
   { path: "/evaluations", label: "Evaluaciones", icon: ClipboardList },
   { path: "/results", label: "Resultados", icon: LineChart },
-  //{ path: "/activated-rules", label: "Reglas activadass", icon: ShieldCheck },
   { path: "/history", label: "Historial clinico", icon: FileClock },
   { path: "/knowledge", label: "Base de conocimiento", icon: BookOpen },
+  { path: "/rules", label: "Reglas IF-THEN", icon: Network, adminOnly: true },
   { path: "/settings", label: "Configuracion", icon: Settings },
 ];
