@@ -1,5 +1,5 @@
-import { Edit3, Eye, Mail, PawPrint, Phone, Search, Trash2, UserPlus, UsersRound } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Edit3, Eye, Mail, Phone, Search, Trash2, UserPlus, UsersRound } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { AlertMessage } from "../../components/common/AlertMessage";
 import { Button } from "../../components/common/Button";
@@ -7,10 +7,11 @@ import { Card } from "../../components/common/Card";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { Modal } from "../../components/common/Modal";
 import { OwnerForm } from "../../components/owners/OwnerForm";
+import { PatientForm } from "../../components/patients/PatientForm";
 import { ownerService } from "../../services/owner.service";
 import { patientService } from "../../services/patient.service";
 import type { Owner, OwnerPayload } from "../../types/owner";
-import type { Patient } from "../../types/patient";
+import type { Breed, Patient, PatientPayload, Species } from "../../types/patient";
 import { cn } from "../../utils/cn";
 
 type FilterMode = "all" | "with-pets" | "without-pets";
@@ -65,19 +66,25 @@ export function OwnersPage() {
   const [success, setSuccess] = useState((location.state as LocationState | null)?.message ?? "");
   const [ownerToDelete, setOwnerToDelete] = useState<OwnerRow | null>(null);
   const [ownerToEdit, setOwnerToEdit] = useState<OwnerRow | null>(null);
+  const [ownerForPatient, setOwnerForPatient] = useState<OwnerRow | null>(null);
+  const [species, setSpecies] = useState<Species[]>([]);
+  const [breeds, setBreeds] = useState<Breed[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPatientSaving, setIsPatientSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [patientFormError, setPatientFormError] = useState("");
 
   async function loadOwners() {
     setIsLoading(true);
     setError("");
 
     try {
-      const [ownerData, patientData] = await Promise.all([
+      const [ownerData, patientData, speciesData] = await Promise.all([
         ownerService.list(),
         patientService.list().catch(() => [] as Patient[]),
+        patientService.listSpecies(),
       ]);
 
       const petCounts = patientData.reduce<Record<number, number>>((accumulator, patient) => {
@@ -91,6 +98,7 @@ export function OwnersPage() {
       }, {});
 
       setOwners(ownerData.map((owner) => ({ ...owner, petCount: petCounts[owner.id] ?? 0 })));
+      setSpecies(speciesData);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -100,6 +108,20 @@ export function OwnersPage() {
 
   useEffect(() => {
     loadOwners();
+  }, []);
+
+  const handleSpeciesChange = useCallback(async (speciesId: number | null) => {
+    if (!speciesId) {
+      setBreeds([]);
+      return;
+    }
+
+    try {
+      const data = await patientService.listBreeds(speciesId);
+      setBreeds(data);
+    } catch {
+      setBreeds([]);
+    }
   }, []);
 
   const filteredOwners = useMemo(() => {
@@ -185,6 +207,31 @@ export function OwnersPage() {
     }
   }
 
+  function openPatientModal(owner: OwnerRow) {
+    setBreeds([]);
+    setPatientFormError("");
+    setOwnerForPatient(owner);
+  }
+
+  async function handleCreatePatient(payload: PatientPayload) {
+    setIsPatientSaving(true);
+    setPatientFormError("");
+
+    try {
+      const patient = await patientService.create(payload);
+      setOwners((current) =>
+        current.map((owner) =>
+          owner.id === patient.owner.id ? { ...owner, petCount: owner.petCount + 1 } : owner
+        )
+      );
+      setSuccess(`Paciente ${patient.name} registrado correctamente.`);
+      setOwnerForPatient(null);
+    } catch (caughtError) {
+      setPatientFormError(getErrorMessage(caughtError));
+    } finally {
+      setIsPatientSaving(false);
+    }
+  }
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
@@ -322,20 +369,15 @@ export function OwnersPage() {
                           <Eye size={17} />
                           Ver detalle
                         </Link>
-                        <Link
-                          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
-                          to={`/owners/${owner.id}?section=patients`}
-                        >
-                          <PawPrint size={17} />
-                          Ver pacientes
-                        </Link>
-                        <Link
-                          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
-                          to={`/patients/new?ownerId=${owner.id}`}
+                        <Button
+                          className="h-10 px-3"
+                          onClick={() => openPatientModal(owner)}
+                          type="button"
+                          variant="secondary"
                         >
                           <UserPlus size={17} />
                           Crear paciente
-                        </Link>
+                        </Button>
                         <Button
                           className="h-10 px-3"
                           onClick={() => {
@@ -429,6 +471,26 @@ export function OwnersPage() {
             onCancel={() => setOwnerToEdit(null)}
             onSubmit={handleUpdate}
             owner={ownerToEdit}
+          />
+        ) : null}
+      </Modal>
+      <Modal
+        isOpen={Boolean(ownerForPatient)}
+        onClose={() => setOwnerForPatient(null)}
+        title="Nuevo paciente"
+      >
+        {ownerForPatient ? (
+          <PatientForm
+            breeds={breeds}
+            error={patientFormError}
+            initialOwnerId={String(ownerForPatient.id)}
+            isSaving={isPatientSaving}
+            mode="create"
+            onCancel={() => setOwnerForPatient(null)}
+            onSpeciesChange={handleSpeciesChange}
+            onSubmit={handleCreatePatient}
+            owners={owners}
+            species={species}
           />
         ) : null}
       </Modal>
