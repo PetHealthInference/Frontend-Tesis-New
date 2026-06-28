@@ -3,6 +3,7 @@ import {
   Calendar,
   Check,
   ClipboardPlus,
+  FileDown,
   FileClock,
   FlaskConical,
   HeartHandshake,
@@ -27,6 +28,7 @@ import { patientService } from "../../services/patient.service";
 import type { ClinicalFactOut, Evaluation, PersistedInferenceResult } from "../../types/evaluation";
 import type { Patient } from "../../types/patient";
 import { cn } from "../../utils/cn";
+import { downloadEvaluationPdf } from "../../utils/evaluationPdf";
 
 function getOwnerName(patient: Patient) {
   return [patient.owner.first_name, patient.owner.last_name].filter(Boolean).join(" ") || "Sin propietario";
@@ -328,7 +330,10 @@ export function ResultsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader patientId={patient.id} />
+      <PageHeader
+        onDownloadPdf={() => downloadEvaluationPdf({ evaluation, patient, results })}
+        patientId={patient.id}
+      />
 
       <Card className="p-6 sm:p-8">
         <div className="grid gap-6 xl:grid-cols-[1.1fr_1.6fr]">
@@ -635,7 +640,7 @@ function ResultsListView({
   );
 }
 
-function PageHeader({ patientId }: { patientId?: number }) {
+function PageHeader({ onDownloadPdf, patientId }: { onDownloadPdf?: () => void; patientId?: number }) {
   return (
     <section className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
       <div>
@@ -654,6 +659,16 @@ function PageHeader({ patientId }: { patientId?: number }) {
         </p>
       </div>
       <div className="flex flex-wrap gap-3">
+        {onDownloadPdf ? (
+          <button
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50"
+            onClick={onDownloadPdf}
+            type="button"
+          >
+            <FileDown size={20} />
+            Descargar PDF
+          </button>
+        ) : null}
         <Link
           className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#4635D3] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3526AD]"
           to={patientId ? `/evaluations?patientId=${patientId}` : "/evaluations"}
