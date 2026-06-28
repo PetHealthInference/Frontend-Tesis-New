@@ -43,6 +43,10 @@ function getInitials(owner: Owner) {
     .toUpperCase();
 }
 
+function getOwnerLocation(owner: Owner) {
+  return [owner.department, owner.province, owner.district].filter(Boolean).join(" / ") || owner.address || "Sin ubicacion";
+}
+
 function getOwnerIdFromPatient(patient: Patient) {
   return patient.owner?.id;
 }
@@ -129,7 +133,7 @@ export function OwnersPage() {
 
     return owners.filter((owner) => {
       const matchesQuery = normalizedQuery
-        ? [getFullName(owner), owner.phone, owner.email, owner.address]
+        ? [getFullName(owner), owner.phone, owner.email, owner.address, getOwnerLocation(owner), owner.ubigeo]
             .filter(Boolean)
             .some((value) => value!.toLowerCase().includes(normalizedQuery))
         : true;
@@ -278,7 +282,7 @@ export function OwnersPage() {
                 key={item.value}
                 onClick={() => setFilter(item.value)}
                 type="button"
-              >
+        >
                 {item.label}
               </button>
             ))}
@@ -305,7 +309,7 @@ export function OwnersPage() {
                   setIsCreateOpen(true);
                 }}
                 type="button"
-              >
+        >
                 Registrar propietario
               </Button>
             </div>
@@ -319,7 +323,7 @@ export function OwnersPage() {
                 <tr className="border-b border-slate-100 text-sm font-extrabold text-slate-600">
                   <th className="px-3 py-4">Propietario</th>
                   <th className="px-3 py-4">Contacto</th>
-                  <th className="px-3 py-4">Direccion</th>
+                  <th className="px-3 py-4">Ubicacion</th>
                   <th className="px-3 py-4">Pacientes asociados</th>
                   <th className="px-3 py-4">Acciones</th>
                 </tr>
@@ -347,14 +351,14 @@ export function OwnersPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="min-w-56 px-3 py-5 font-semibold">{owner.address || "Sin direccion"}</td>
+                    <td className="min-w-64 px-3 py-5 font-semibold"><div>{getOwnerLocation(owner)}</div><div className="mt-1 text-xs font-medium text-slate-400">{owner.address || "Sin direccion exacta"}</div></td>
                     <td className="px-3 py-5">
                       <span
                         className={cn(
                           "inline-flex rounded-md px-4 py-2 text-xs font-extrabold",
                           owner.petCount > 0 ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
                         )}
-                      >
+        >
                         {owner.petCount === 0
                           ? "Sin pacientes"
                           : `${owner.petCount} ${owner.petCount === 1 ? "paciente" : "pacientes"}`}
@@ -365,7 +369,7 @@ export function OwnersPage() {
                         <Link
                           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
                           to={`/owners/${owner.id}`}
-                        >
+        >
                           <Eye size={17} />
                           Ver detalle
                         </Link>
@@ -374,7 +378,7 @@ export function OwnersPage() {
                           onClick={() => openPatientModal(owner)}
                           type="button"
                           variant="secondary"
-                        >
+        >
                           <UserPlus size={17} />
                           Crear paciente
                         </Button>
@@ -386,7 +390,7 @@ export function OwnersPage() {
                           }}
                           type="button"
                           variant="secondary"
-                        >
+        >
                           <Edit3 size={17} />
                           Editar
                         </Button>
@@ -400,7 +404,7 @@ export function OwnersPage() {
                               : "Eliminar propietario"
                           }
                           variant="secondary"
-                        >
+        >
                           <Trash2 size={17} />
                           Eliminar
                         </Button>
@@ -416,13 +420,13 @@ export function OwnersPage() {
               </span>
               <div className="flex items-center gap-2">
                 <button className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-400" type="button">
-                  ‹
+                  &lt;
                 </button>
                 <button className="grid h-10 w-10 place-items-center rounded-lg bg-[#4635D3] font-extrabold text-white" type="button">
                   1
                 </button>
                 <button className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-400" type="button">
-                  ›
+                  {">"}
                 </button>
               </div>
             </div>
@@ -448,7 +452,7 @@ export function OwnersPage() {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         title="Nuevo propietario"
-      >
+        >
         <OwnerForm
           error={formError}
           isSaving={isSaving}
@@ -462,7 +466,7 @@ export function OwnersPage() {
         isOpen={Boolean(ownerToEdit)}
         onClose={() => setOwnerToEdit(null)}
         title="Editar propietario"
-      >
+        >
         {ownerToEdit ? (
           <OwnerForm
             error={formError}
@@ -478,7 +482,7 @@ export function OwnersPage() {
         isOpen={Boolean(ownerForPatient)}
         onClose={() => setOwnerForPatient(null)}
         title="Nuevo paciente"
-      >
+        >
         {ownerForPatient ? (
           <PatientForm
             breeds={breeds}
