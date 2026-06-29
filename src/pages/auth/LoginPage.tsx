@@ -182,7 +182,6 @@ export function LoginPage() {
               </Button>
             </form>
 
-            {/* Recuperacion por correo pendiente de configuracion SMTP en produccion.
             <button
               className="mt-5 w-full rounded-lg px-4 py-2.5 text-center text-sm font-extrabold text-[#4635D3] transition hover:bg-violet-50"
               onClick={() => {
@@ -192,9 +191,8 @@ export function LoginPage() {
               }}
               type="button"
             >
-              ¿Olvidaste tu contraseña?
+              Olvidaste tu contrasena?
             </button>
-            */}
           </>
         )}
       </section>
