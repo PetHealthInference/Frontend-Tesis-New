@@ -22,6 +22,8 @@ export type WeekRange = {
   end: Date;
 };
 
+export type DashboardScope = "general" | "weekly";
+
 export type RecentEvaluation = {
   id: number;
   patient: string;
@@ -43,3 +45,5 @@ export type DashboardData = {
   recentEvaluations: RecentEvaluation[];
   recentPatients: RecentPatient[];
 };
+
+
