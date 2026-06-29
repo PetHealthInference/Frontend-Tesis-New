@@ -29,8 +29,8 @@ function formatDate(value?: string | null) {
   }).format(date);
 }
 
-function weekChange(count: number) {
-  return `${count} esta semana`;
+function scopeChange(count: number, week?: WeekRange) {
+  return week ? `${count} esta semana` : `${count} en total`;
 }
 
 function readEvaluationDate(evaluation: Evaluation) {
@@ -188,28 +188,28 @@ export const dashboardService = {
         {
           label: "Propietarios registrados",
           value: String(countCreatedThisWeek<Owner>(owners, week)),
-          change: weekChange(countCreatedThisWeek<Owner>(owners, week)),
+          change: scopeChange(countCreatedThisWeek<Owner>(owners, week), week),
           tone: "primary",
           icon: Users,
         },
         {
           label: "Pacientes registrados",
           value: String(countCreatedThisWeek<Patient>(patients, week)),
-          change: weekChange(countCreatedThisWeek<Patient>(patients, week)),
+          change: scopeChange(countCreatedThisWeek<Patient>(patients, week), week),
           tone: "primary",
           icon: PawPrint,
         },
         {
           label: "Evaluaciones realizadas",
           value: String(weeklyEvaluations.length),
-          change: weekChange(weeklyEvaluations.length),
+          change: scopeChange(weeklyEvaluations.length, week),
           tone: "primary",
           icon: ClipboardPlus,
         },
         {
           label: "Casos con riesgo alto",
           value: String(highRiskCases),
-          change: weekChange(highRiskCasesThisWeek),
+          change: scopeChange(highRiskCasesThisWeek, week),
           tone: "danger",
           icon: TriangleAlert,
         },
@@ -219,3 +219,6 @@ export const dashboardService = {
     }
   },
 };
+
+
+
