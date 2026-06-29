@@ -26,6 +26,10 @@ function getInitials(owner: Owner) {
     .toUpperCase();
 }
 
+function getOwnerLocation(owner: Owner) {
+  return [owner.department, owner.province, owner.district].filter(Boolean).join(" / ") || "Sin ubicacion";
+}
+
 function getSpeciesBreed(patient: Patient) {
   return `${patient.species?.name ?? "Sin especie"} / ${patient.breed?.name ?? "Sin raza"}`;
 }
@@ -209,9 +213,10 @@ export function OwnerDetailPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <InfoCard icon={Phone} label="Telefono" value={owner.phone || "Sin telefono"} />
           <InfoCard icon={Mail} label="Correo" value={owner.email || "Sin correo"} />
+          <InfoCard icon={UserRound} label="Ubicacion" value={getOwnerLocation(owner)} />
           <InfoCard icon={UserRound} label="Direccion" value={owner.address || "Sin direccion"} />
         </div>
       </Card>
