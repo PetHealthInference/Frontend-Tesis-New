@@ -5,6 +5,10 @@ export type Owner = {
   email?: string;
   phone?: string;
   address?: string;
+  department?: string | null;
+  province?: string | null;
+  district?: string | null;
+  ubigeo?: string | null;
   created_at?: string | null;
 };
 
@@ -14,6 +18,10 @@ export type OwnerFormValues = {
   phone: string;
   email: string;
   address: string;
+  department: string;
+  province: string;
+  district: string;
+  ubigeo: string;
 };
 
 export type OwnerPayload = {
@@ -22,4 +30,8 @@ export type OwnerPayload = {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
+  department?: string | null;
+  province?: string | null;
+  district?: string | null;
+  ubigeo?: string | null;
 };

@@ -2,8 +2,18 @@ import { useEffect, useState } from "react";
 import { evaluationService } from "../services/evaluation.service";
 import type { FactDefinition } from "../types/evaluation";
 
+type EvaluationFactGroups = {
+  symptoms: FactDefinition[];
+  clinicalVariables: FactDefinition[];
+};
+
+const emptyGroups: EvaluationFactGroups = {
+  symptoms: [],
+  clinicalVariables: [],
+};
+
 export function useEvaluationFacts(speciesId?: number) {
-  const [data, setData] = useState<FactDefinition[]>([]);
+  const [groups, setGroups] = useState<EvaluationFactGroups>(emptyGroups);
   const [error, setError] = useState("");
   const [loadedSpeciesId, setLoadedSpeciesId] = useState<number>();
   const [failedSpeciesId, setFailedSpeciesId] = useState<number>();
@@ -14,30 +24,42 @@ export function useEvaluationFacts(speciesId?: number) {
     }
 
     let active = true;
-    evaluationService
-      .getEvaluationFacts(speciesId)
-      .then((facts) => {
+    Promise.all([
+      evaluationService.getEvaluationSymptoms(speciesId),
+      evaluationService.getEvaluationClinicalVariables(speciesId),
+    ])
+      .then(([symptoms, clinicalVariables]) => {
         if (!active) return;
-        setData(facts.filter((fact) => fact.is_active));
+        setGroups({
+          symptoms: symptoms.filter((fact) => fact.is_active && fact.source_type === "symptom"),
+          clinicalVariables: clinicalVariables.filter(
+            (fact) => fact.is_active && fact.source_type === "clinical_variable"
+          ),
+        });
         setLoadedSpeciesId(speciesId);
         setFailedSpeciesId(undefined);
         setError("");
       })
       .catch((cause: unknown) => {
         if (!active) return;
+        setGroups(emptyGroups);
         setError(getErrorMessage(cause));
         setFailedSpeciesId(speciesId);
-      })
+      });
 
     return () => {
       active = false;
     };
   }, [speciesId]);
 
-  const isCurrent = speciesId === loadedSpeciesId;
+  const isCurrent = Boolean(speciesId) && speciesId === loadedSpeciesId;
+  const currentGroups = isCurrent ? groups : emptyGroups;
+
   return {
-    data: isCurrent ? data : [],
-    error: speciesId === failedSpeciesId ? error : "",
+    data: [...currentGroups.symptoms, ...currentGroups.clinicalVariables],
+    symptoms: currentGroups.symptoms,
+    clinicalVariables: currentGroups.clinicalVariables,
+    error: speciesId && speciesId === failedSpeciesId ? error : "",
     isLoading: Boolean(speciesId) && !isCurrent && speciesId !== failedSpeciesId,
   };
 }
@@ -47,5 +69,5 @@ function getErrorMessage(error: unknown) {
     const detail = (error as { response?: { data?: { detail?: string } } }).response?.data?.detail;
     if (detail) return detail;
   }
-  return "No fue posible cargar los facts clínicos.";
+  return "No fue posible cargar los facts clinicos.";
 }

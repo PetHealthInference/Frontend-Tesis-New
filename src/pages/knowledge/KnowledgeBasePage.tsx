@@ -19,6 +19,7 @@ import { AlertMessage } from "../../components/common/AlertMessage";
 import { Card } from "../../components/common/Card";
 import { DataTable } from "../../components/common/DataTable";
 import { knowledgeService } from "../../services/knowledge.service";
+import { useAuth } from "../../hooks/useAuth";
 import type { ClinicalVariable, CatalogItem } from "../../types/evaluation";
 import type { Disease, KnowledgeBaseData, KnowledgeTab, RiskLevel, Rule } from "../../types/knowledge";
 import { cn } from "../../utils/cn";
@@ -104,9 +105,13 @@ function probabilityRange(risk: RiskLevel) {
 }
 
 function conditionText(rule: Rule) {
-  return rule.conditions
-    .map((condition) => `${condition.variable_key} ${condition.operator} ${String(condition.expected_value)}`)
-    .join(" + ");
+  const groups = new Map<number, string[]>();
+  rule.conditions.forEach((condition) => {
+    const text = `${condition.variable_key} ${condition.operator} ${String(condition.expected_value)}`;
+    const group = condition.logical_group ?? 1;
+    groups.set(group, [...(groups.get(group) ?? []), text]);
+  });
+  return [...groups.values()].map((conditions) => `(${conditions.join(" AND ")})`).join(" OR ");
 }
 
 function variableRange(variable: ClinicalVariable) {
@@ -118,6 +123,7 @@ function variableRange(variable: ClinicalVariable) {
 }
 
 export function KnowledgeBasePage() {
+  const { isAdmin } = useAuth();
   const [data, setData] = useState<KnowledgeBaseData | null>(null);
   const [activeTab, setActiveTab] = useState<KnowledgeTab>("diseases");
   const [speciesFilter, setSpeciesFilter] = useState<SpeciesFilter>("all");
@@ -134,7 +140,7 @@ export function KnowledgeBasePage() {
       setError("");
 
       try {
-        const result = await knowledgeService.getKnowledgeBase();
+        const result = await knowledgeService.getKnowledgeBase(isAdmin);
 
         if (isMounted) {
           setData(result);
@@ -155,7 +161,7 @@ export function KnowledgeBasePage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -266,7 +272,7 @@ export function KnowledgeBasePage() {
 
       <Card className="overflow-hidden">
         <div className="grid grid-cols-2 md:grid-cols-5">
-          {tabs.map((tab) => (
+          {tabs.filter((tab) => isAdmin || tab.id !== "rules").map((tab) => (
             <button
               className={cn(
                 "min-h-14 border-b-2 px-4 text-sm font-extrabold transition",
@@ -597,7 +603,7 @@ function RuleDetail({ rule, diseases }: { rule: Rule; diseases: Disease[] }) {
       <div className="mb-6 flex flex-wrap gap-3">
         {rule.conditions.map((condition) => (
           <span className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-extrabold text-slate-600" key={condition.id}>
-            {condition.variable_key} {condition.operator} {String(condition.expected_value)}
+            {condition.variable_key} {condition.operator} {String(condition.expected_value)}{(condition.logical_group ?? 1) > 1 ? ` · alternativa ${condition.logical_group}` : ""}
           </span>
         ))}
       </div>

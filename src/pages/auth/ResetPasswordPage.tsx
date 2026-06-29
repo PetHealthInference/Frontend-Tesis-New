@@ -8,6 +8,7 @@ import { FormField } from "../../components/common/FormField";
 import { authService } from "../../services/auth.service";
 
 type FormValues = {
+  resetToken: string;
   newPassword: string;
   confirmPassword: string;
 };
@@ -24,8 +25,8 @@ function getErrorMessage(error: unknown) {
 export function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const token = searchParams.get("token") ?? "";
-  const [values, setValues] = useState<FormValues>({ newPassword: "", confirmPassword: "" });
+  const tokenFromUrl = searchParams.get("token") ?? "";
+  const [values, setValues] = useState<FormValues>({ resetToken: tokenFromUrl, newPassword: "", confirmPassword: "" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,8 +35,9 @@ export function ResetPasswordPage() {
     event.preventDefault();
     setError("");
 
-    if (!token) {
-      setError("El enlace de recuperacion es invalido o incompleto.");
+    const resetToken = values.resetToken.trim();
+    if (!resetToken) {
+      setError("Ingresa el codigo de recuperacion recibido por correo.");
       return;
     }
     if (values.newPassword.length < 8) {
@@ -49,7 +51,7 @@ export function ResetPasswordPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await authService.resetPassword({ token, new_password: values.newPassword });
+      const response = await authService.resetPassword({ token: resetToken, new_password: values.newPassword });
       setSuccess(response.message);
       window.setTimeout(() => navigate("/login", { replace: true }), 1500);
     } catch (caughtError) {
@@ -67,7 +69,7 @@ export function ResetPasswordPage() {
             <KeyRound size={30} />
           </span>
           <h1 className="mt-4 text-2xl font-extrabold text-[#172554]">Restablecer contrasena</h1>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">Define una nueva contrasena para recuperar el acceso.</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">Ingresa el codigo recibido y define una nueva contrasena.</p>
         </div>
 
         {error ? <AlertMessage message={error} tone="error" onClose={() => setError("")} /> : null}
@@ -76,6 +78,15 @@ export function ResetPasswordPage() {
         {!success ? (
           <form className="space-y-4" onSubmit={handleSubmit}>
             <FormField
+              autoComplete="one-time-code"
+              label="Codigo de recuperacion"
+              onChange={(event) => setValues((current) => ({ ...current, resetToken: event.target.value }))}
+              required
+              type="text"
+              value={values.resetToken}
+            />
+            <FormField
+              autoComplete="new-password"
               label="Nueva contrasena"
               minLength={8}
               onChange={(event) => setValues((current) => ({ ...current, newPassword: event.target.value }))}
@@ -84,6 +95,7 @@ export function ResetPasswordPage() {
               value={values.newPassword}
             />
             <FormField
+              autoComplete="new-password"
               label="Confirmar nueva contrasena"
               minLength={8}
               onChange={(event) => setValues((current) => ({ ...current, confirmPassword: event.target.value }))}

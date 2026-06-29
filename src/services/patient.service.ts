@@ -42,4 +42,9 @@ export const patientService = {
       }
     }
   },
+
+  async remove(patientId: number): Promise<void> {
+    await api.delete(`/api/v1/patients/${patientId}`);
+  },
 };
+
