@@ -1,0 +1,992 @@
+@startuml Sistema_Clinica_Veterinaria
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam class {
+  BackgroundColor White
+  BorderColor #444444
+  ArrowColor #444444
+  HeaderBackgroundColor #BBCCEE
+}
+hide empty methods
+
+title Sistema de Evaluación Clínica Veterinaria\nDiagrama de Clases UML
+
+' ======================================================
+' BACKEND :: MODELOS (SQLAlchemy ORM)
+' ======================================================
+package "Backend :: Modelos" #DDEEFF {
+
+  class Species {
+    +id: int <<PK>>
+    +name: str[40] <<unique>>
+  }
+
+  class Breed {
+    +id: int <<PK>>
+    +species_id: int <<FK>>
+    +name: str[80]
+  }
+
+  class Owner {
+    +id: int <<PK>>
+    +first_name: str[120]
+    +last_name: str[120]
+    +phone: str[20]
+    +email: str[160] <<unique>>
+    +address: str[255]
+    +department: str[80]
+    +province: str[80]
+    +district: str[80]
+    +ubigeo: str[6]
+    +is_active: bool
+    +created_at: datetime
+  }
+
+  class Patient {
+    +id: int <<PK>>
+    +owner_id: int <<FK>>
+    +name: str[80]
+    +species_id: int <<FK>>
+    +breed_id: int <<FK, nullable>>
+    +sex: str[20]
+    +birth_date: date
+    +weight: float
+    +created_by: int <<FK>>
+    +is_active: bool
+    +created_at: datetime
+  }
+
+  class Role {
+    +id: int <<PK>>
+    +name: str[40] <<unique>>
+    +description: str[255]
+  }
+
+  class User {
+    +id: int <<PK>>
+    +full_name: str[120]
+    +email: str[160] <<unique>>
+    +password_hash: str[255]
+    +role_id: int <<FK>>
+    +is_active: bool
+  }
+
+  class PasswordResetToken {
+    +id: int <<PK>>
+    +user_id: int <<FK>>
+    +token_hash: str[64] <<unique>>
+    +expires_at: datetime
+    +used_at: datetime
+    +created_at: datetime
+  }
+
+  class Disease {
+    +id: int <<PK>>
+    +name: str[120]
+    +species_id: int <<FK>>
+    +description: str
+    +base_probability: float
+    +is_degenerative: bool
+    +is_active: bool
+  }
+
+  class Symptom {
+    +id: int <<PK>>
+    +name: str[120]
+    +description: str
+    +species_id: int <<FK>>
+    +is_active: bool
+  }
+
+  class ClinicalVariable {
+    +id: int <<PK>>
+    +key: str[80]
+    +name: str[120]
+    +data_type: str[30]
+    +unit: str[30]
+    +normal_min: float
+    +normal_max: float
+    +species_id: int <<FK, nullable>>
+    +is_active: bool
+  }
+
+  class ClinicalProbability {
+    +id: int <<PK>>
+    +disease_id: int <<FK>>
+    +symptom_id: int <<FK, nullable>>
+    +variable_id: int <<FK, nullable>>
+    +expected_value: str[100]
+    +probability_given_disease: float
+    +general_probability: float
+    +is_active: bool
+  }
+
+  class EvaluationClinical {
+    +id: int <<PK>>
+    +patient_id: int <<FK>>
+    +veterinarian_id: int <<FK>>
+    +reason: str[255]
+    +observations: str
+    +created_at: datetime
+  }
+
+  class EvaluationClinicalFact {
+    +id: int <<PK>>
+    +evaluation_id: int <<FK>>
+    +patient_id: int <<FK>>
+    +fact_key: str[100]
+    +value: Any <<JSON>>
+    +source_type: str[40]
+  }
+
+  class ClinicalHistory {
+    +id: int <<PK>>
+    +patient_id: int <<FK>>
+    +evaluation_id: int <<FK, nullable>>
+    +event_type: str[60]
+    +summary: str
+    +created_at: datetime
+  }
+
+  class RiskLevel {
+    +id: int <<PK>>
+    +code: str[20] <<unique>>
+    +name: str[40]
+    +description: str
+    +min_probability: float
+    +max_probability: float
+    +sort_order: int
+    +is_active: bool
+  }
+
+  class InferenceRule {
+    +id: int <<PK>>
+    +code: str[50] <<unique>>
+    +name: str[150]
+    +disease_id: int <<FK>>
+    +risk_level_id: int <<FK>>
+    +risk_level: str[20]
+    +weight: float
+    +priority: int
+    +version: int
+    +is_active: bool
+  }
+
+  class RuleCondition {
+    +id: int <<PK>>
+    +rule_id: int <<FK>>
+    +variable_key: str[100]
+    +operator: str[30]
+    +expected_value: Any <<JSON>>
+    +logical_group: int
+  }
+
+  class InferenceResult {
+    +id: int <<PK>>
+    +evaluation_id: int <<FK>>
+    +disease_id: int <<FK>>
+    +risk_level_id: int <<FK>>
+    +suggested_diagnosis: str[255]
+    +risk_level: str[20]
+    +score: float
+    +probability: float
+    +inference_method: str[50]
+    +explanation: str
+    +created_at: datetime
+    --
+    +patient_id(): int <<property>>
+  }
+
+  class ActivatedRule {
+    +id: int <<PK>>
+    +result_id: int <<FK>>
+    +rule_id: int <<FK>>
+    +fulfilled_conditions: Any <<JSON>>
+    +justification: str
+    +rule_code: str[50]
+    +rule_version: int
+  }
+
+  class FactDefinition {
+    +id: int <<PK>>
+    +fact_key: str[100]
+    +display_name: str[150]
+    +source_type: str[30]
+    +data_type: str[30]
+    +unit: str[40]
+    +allowed_values: object <<JSON>>
+    +species_id: int <<FK, nullable>>
+    +symptom_id: int <<FK, nullable>>
+    +clinical_variable_id: int <<FK, nullable>>
+    +is_active: bool
+  }
+
+  class KnowledgeSource {
+    +id: int <<PK>>
+    +title: str[300]
+    +citation: str
+    +url: str[500]
+    +doi: str[200]
+    +publication_year: int
+    +is_active: bool
+  }
+
+  class RuleReference {
+    +id: int <<PK>>
+    +rule_id: int <<FK>>
+    +source_id: int <<FK>>
+    +rationale: str
+    +locator: str[100]
+  }
+}
+
+' ======================================================
+' BACKEND :: REPOSITORIOS
+' ======================================================
+package "Backend :: Repositorios" #EEFFDD {
+
+  abstract class "BaseRepository<ModelT>" as BaseRepository {
+    #db: Session
+    --
+    +get(entity_id: int): ModelT | None
+    +list(skip: int, limit: int): list[ModelT]
+    +add(entity: ModelT): ModelT
+    +delete(entity: ModelT): None
+  }
+
+  class SpeciesRepository {
+    +get_by_name(name: str): Species | None
+  }
+
+  class BreedRepository {
+    +get_by_name_and_species(name, species_id): Breed | None
+    +list_by_species(species_id, skip, limit): list[Breed]
+  }
+
+  class OwnerRepository {
+    +get_by_email(email: str): Owner | None
+    +get_by_id(owner_id: int): Owner | None
+    +create(data: dict): Owner
+    +update(owner_id: int, data: dict): Owner | None
+    +delete(owner_id: int): None
+  }
+
+  class PatientRepository {
+    +get_with_species(patient_id: int): Patient | None
+    +list_with_species(skip, limit): list[Patient]
+    +species_exists(species_id: int): bool
+    +breed_exists(breed_id: int): bool
+    +owner_exists(owner_id: int): bool
+  }
+
+  class UserRepository {
+    +get_by_email(email: str): User | None
+    +list_with_roles(skip, limit): list[User]
+    +get_with_role(user_id: int): User | None
+    +role_exists(role_id: int): bool
+    +save(user: User): User
+    +ensure_default_roles(): None
+  }
+
+  class EvaluationRepository {
+    +get_with_facts(evaluation_id: int): EvaluationClinical | None
+    +list_by_patient(patient_id: int): list[EvaluationClinical]
+    +list_recent(limit: int): list[EvaluationClinical]
+    +create_with_facts(patient_id, veterinarian_id, reason, observations, facts): EvaluationClinical
+  }
+
+  class ResultRepository {
+    +create_results(evaluation_id, patient_id, results): list[InferenceResult]
+    +list_by_evaluation(evaluation_id: int): list[InferenceResult]
+    +list_activated_rules(result_id: int): list[ActivatedRule]
+  }
+
+  class RuleRepository {
+    +get_with_conditions(rule_id: int): InferenceRule | None
+    +list_with_conditions(skip, limit): list[InferenceRule]
+    +get_active_rules_by_species(species_id: int): list[InferenceRule]
+    +get_by_code(code: str): InferenceRule | None
+    +create_rule(data, conditions): InferenceRule
+    +replace_conditions(rule, conditions): InferenceRule
+  }
+
+  class CatalogRepository {
+    +list_diseases(): list[Disease]
+    +create_disease(disease): Disease
+    +list_symptoms(): list[Symptom]
+    +list_clinical_variables(): list[ClinicalVariable]
+  }
+
+  class ClinicalProbabilityRepository {
+    +crear_probabilidad(data: dict): ClinicalProbability
+    +listar_probabilidades_por_enfermedad(disease_id): list[ClinicalProbability]
+    +buscar_probabilidad_por_evidencia(disease_id, symptom_id, variable_id): ClinicalProbability | None
+    +actualizar_probabilidad(entity_id, updates): ClinicalProbability | None
+  }
+
+  class HistoryRepository {
+    +list_by_patient(patient_id: int): list[ClinicalHistory]
+  }
+
+  class PasswordResetTokenRepository {
+    +invalidate_active_for_user(user_id, used_at): None
+    +create(token: PasswordResetToken): PasswordResetToken
+    +get_valid_by_hash(token_hash: str): PasswordResetToken | None
+    +mark_used(token, used_at): None
+  }
+}
+
+' ======================================================
+' BACKEND :: SERVICIOS
+' ======================================================
+package "Backend :: Servicios" #FFEECC {
+
+  class AuthService {
+    -user_repository: UserRepository
+    -reset_token_repository: PasswordResetTokenRepository
+    -email_service: EmailService
+    --
+    +login(email, password): TokenResponse
+    +change_password(user, current_password, new_password): None
+    +request_password_reset(email): tuple[str, PasswordResetEmailPayload]
+    +reset_password(token, new_password): None
+  }
+
+  class EmailService {
+    +send_password_reset(recipient, reset_url, recipient_name): None
+  }
+
+  class UserService {
+    -repository: UserRepository
+    --
+    +list_users(): list[User]
+    +create_user(payload: UserCreate): User
+    +update_user(user_id, payload, current_user_id): User
+  }
+
+  class OwnerService {
+    -repository: OwnerRepository
+    --
+    +create_owner(schema: OwnerCreate): Owner
+    +get_owner(owner_id: int): Owner
+    +list_owners(skip, limit): list[Owner]
+    +delete_owner(owner_id: int): None
+    +update_owner(owner_id, schema): Owner
+  }
+
+  class PatientService {
+    -repository: PatientRepository
+    --
+    +list_patients(): list[Patient]
+    +get_patient(patient_id: int): Patient
+    +create_patient(payload, created_by: int): Patient
+    +update_patient(patient_id, payload): Patient
+    +delete_patient(patient_id: int): None
+  }
+
+  class SpeciesService {
+    -repository: SpeciesRepository
+    --
+    +list_species(skip, limit): list[Species]
+    +get_species(species_id: int): Species
+    +create_species(payload): Species
+    +update_species(species_id, payload): Species
+    +delete_species(species_id: int): None
+  }
+
+  class BreedService {
+    -repository: BreedRepository
+    --
+    +list_breeds(species_id, skip, limit): list[Breed]
+    +get_breed(breed_id: int): Breed
+    +create_breed(payload): Breed
+    +update_breed(breed_id, payload): Breed
+    +delete_breed(breed_id: int): None
+  }
+
+  class EvaluationService {
+    -evaluation_repository: EvaluationRepository
+    -patient_repository: PatientRepository
+    --
+    +create_evaluation(payload, veterinarian_id): EvaluationClinical
+    +get_evaluation(evaluation_id: int): EvaluationClinical
+    +list_recent(): list[EvaluationClinical]
+    +list_by_patient(patient_id: int): list[EvaluationClinical]
+    +list_fact_definitions(species_id): list[FactDefinition]
+    +list_fact_definitions_by_source(source_type, species_id): list[FactDefinition]
+  }
+
+  class InferenceService {
+    -rule_repository: RuleRepository
+    -patient_repository: PatientRepository
+    -evaluation_repository: EvaluationRepository
+    -result_repository: ResultRepository
+    -engine: InferenceEngine
+    --
+    +run_from_payload(patient_id, facts): list[dict]
+    +run_and_persist(evaluation_id: int): list[InferenceResult]
+    +list_results(evaluation_id: int): list[InferenceResult]
+    +list_activated_rules(result_id: int): list[ActivatedRule]
+  }
+
+  class BayesService {
+    +obtener_evidencias_evaluacion(facts: dict): list[dict]
+    +evaluar_reglas(engine, facts, rules): list[dict]
+    +calcular_probabilidad_bayes(disease, evidences, clinical_probs): float
+    +normalizar_probabilidades(resultados): list[dict]
+    +determinar_nivel_riesgo(probabilidad, reglas_activadas): str
+    +generar_explicacion_bayes(disease_name, probabilidad, reglas_activadas, evidencias): str
+  }
+
+  class RuleService {
+    -repository: RuleRepository
+    --
+    +list_rules(): list[InferenceRule]
+    +get_rule(rule_id: int): InferenceRule
+    +create_rule(payload: RuleCreate): InferenceRule
+    +update_rule(rule_id, payload): InferenceRule
+    +update_status(rule_id, payload): InferenceRule
+  }
+
+  class CatalogService {
+    -repository: CatalogRepository
+    --
+    +list_diseases(): list[Disease]
+    +create_disease(payload): Disease
+    +list_symptoms(): list[Symptom]
+    +list_clinical_variables(): list[ClinicalVariable]
+  }
+
+  class HistoryService {
+    -repository: HistoryRepository
+    --
+    +list_by_patient(patient_id: int): list[ClinicalHistory]
+  }
+}
+
+' ======================================================
+' BACKEND :: MOTOR DE INFERENCIA
+' ======================================================
+package "Backend :: Inferencia" #FFDDE5 {
+
+  class InferenceEngine {
+    -evaluator: ConditionEvaluator
+    --
+    +evaluate(facts: dict, rules: list): list[dict]
+    -_rule_matches(rule, facts, traces): bool
+  }
+
+  class ConditionEvaluator {
+    +matches(observed, operator, expected): bool
+    -_to_float(value): float
+    -_range(expected): tuple[float, float]
+    -_contains(observed, expected): bool
+    -_in(observed, expected): bool
+  }
+
+  class ConditionTrace <<dataclass>> {
+    +variable_key: str
+    +operator: str
+    +expected_value: object
+    +observed_value: object
+    --
+    +as_text(): str
+  }
+}
+
+' ======================================================
+' BACKEND :: NUCLEO (excepciones y seguridad)
+' ======================================================
+package "Backend :: Nucleo" #EEEEEE {
+
+  class AppException {
+    +status_code: int
+    +detail: str
+  }
+
+  class NotFoundError {
+    +status_code: int = 404
+  }
+
+  class ConflictError {
+    +status_code: int = 409
+  }
+
+  class UnauthorizedError {
+    +status_code: int = 401
+  }
+
+  class ForbiddenError {
+    +status_code: int = 403
+  }
+}
+
+' ======================================================
+' FRONTEND :: TIPOS (Interfaces TypeScript de dominio)
+' ======================================================
+package "Frontend :: Tipos" #D0E8FF {
+
+  interface "Species" as FE_Species {
+    +id: number
+    +name: string
+  }
+
+  interface "Breed" as FE_Breed {
+    +id: number
+    +name: string
+    +species_id: number
+    +species?: Species
+  }
+
+  interface "Owner" as FE_Owner {
+    +id: number
+    +first_name: string
+    +last_name?: string
+    +email?: string
+    +phone?: string
+    +address?: string
+    +department?: string
+    +province?: string
+    +district?: string
+    +ubigeo?: string
+    +created_at?: string
+  }
+
+  interface "Patient" as FE_Patient {
+    +id: number
+    +name: string
+    +species: Species
+    +breed?: Breed
+    +owner: Owner
+    +sex: string
+    +birth_date?: string
+    +weight?: number
+    +created_at: string
+  }
+
+  interface "Role" as FE_Role {
+    +id: number
+    +name: string
+    +description?: string
+  }
+
+  interface "User" as FE_User {
+    +id: number
+    +full_name: string
+    +email: string
+    +is_active: boolean
+    +role?: Role
+  }
+
+  interface "ClinicalFactIn" as FE_ClinicalFactIn {
+    +fact_key: string
+    +value: string | number | boolean
+    +source_type: "symptom" | "clinical_variable" | "clinical_input"
+  }
+
+  interface "ClinicalFactOut" as FE_ClinicalFactOut {
+    +id: number
+    +fact_key: string
+    +value: string | number | boolean
+    +source_type: string
+  }
+
+  interface "Evaluation" as FE_Evaluation {
+    +id: number
+    +patient_id: number
+    +veterinarian_id?: number
+    +reason?: string
+    +observations?: string
+    +created_at: string
+    +result?: string
+    +risk_level?: string
+    +facts?: ClinicalFactOut[]
+  }
+
+  interface "FactDefinition" as FE_FactDefinition {
+    +id: number
+    +fact_key: string
+    +display_name: string
+    +source_type: string
+    +data_type: string
+    +unit?: string
+    +allowed_values?: (string|number|boolean)[]
+    +species_id?: number
+    +is_active: boolean
+  }
+
+  interface "PersistedActivatedRule" as FE_PersistedActivatedRule {
+    +id: number
+    +rule_id: number
+    +fulfilled_conditions: unknown
+    +justification: string
+    +rule_code?: string
+    +rule_version?: number
+  }
+
+  interface "PersistedInferenceResult" as FE_PersistedInferenceResult {
+    +id: number
+    +evaluation_id: number
+    +patient_id: number
+    +disease_id: number
+    +risk_level_id: number
+    +suggested_diagnosis: string
+    +risk_level: string
+    +score: number
+    +probability?: number
+    +inference_method?: string
+    +explanation?: string
+    +activated_rules: PersistedActivatedRule[]
+  }
+
+  interface "Disease" as FE_Disease {
+    +id: number
+    +name: string
+    +species_id: number
+    +description?: string
+    +is_degenerative: boolean
+    +is_active: boolean
+  }
+
+  interface "RuleCondition" as FE_RuleCondition {
+    +id: number
+    +variable_key: string
+    +operator: string
+    +expected_value: string | number | boolean
+    +logical_group?: number
+  }
+
+  interface "Rule" as FE_Rule {
+    +id: number
+    +code: string
+    +name: string
+    +disease_id: number
+    +risk_level_id: number
+    +risk_level: string
+    +weight: number
+    +priority: int
+    +version: number
+    +is_active: boolean
+    +conditions: RuleCondition[]
+  }
+
+  interface "RiskLevel" as FE_RiskLevel {
+    +id: number
+    +code: string
+    +name: string
+    +description?: string
+    +min_probability?: number
+    +max_probability?: number
+    +sort_order: number
+    +is_active: boolean
+  }
+
+  interface "PatientHistoryEvaluation" as FE_PatientHistoryEvaluation {
+    +evaluation: Evaluation
+    +results: PersistedInferenceResult[]
+  }
+
+  interface "PatientHistorySummary" as FE_PatientHistorySummary {
+    +patient: Patient
+    +evaluations: PatientHistoryEvaluation[]
+    +events: ClinicalHistoryEvent[]
+  }
+
+  interface "AuthState" as FE_AuthState {
+    +isAuthenticated: boolean
+    +token: string | null
+  }
+
+  interface "DashboardData" as FE_DashboardData {
+    +recentEvaluations: RecentEvaluation[]
+    +recentPatients: RecentPatient[]
+  }
+}
+
+' ======================================================
+' FRONTEND :: SERVICIOS (API client modules)
+' ======================================================
+package "Frontend :: Servicios" #DDFFD0 {
+
+  class ApiClient <<singleton>> {
+    +baseURL: string
+    --
+    ' interceptor entrada: inyecta Bearer token
+    ' interceptor salida: limpia token en 401
+  }
+
+  class AuthService_FE <<service>> {
+    +login(payload: LoginRequest): Promise<LoginResponse>
+    +forgotPassword(payload): Promise<ForgotPasswordResponse>
+    +resetPassword(payload): Promise<ResetPasswordResponse>
+    +getCurrentUser(): Promise<User>
+    +changePassword(payload): Promise<ChangePasswordResponse>
+    +logout(): void
+    +isAuthenticated(): boolean
+  }
+
+  class PatientService_FE <<service>> {
+    +list(): Promise<Patient[]>
+    +getById(patientId: number): Promise<Patient>
+    +create(payload: PatientPayload): Promise<Patient>
+    +update(patientId, payload): Promise<Patient>
+    +listSpecies(): Promise<Species[]>
+    +listBreeds(speciesId?): Promise<Breed[]>
+    +remove(patientId: number): Promise<void>
+  }
+
+  class OwnerService_FE <<service>> {
+    +list(): Promise<Owner[]>
+    +getById(ownerId: number): Promise<Owner>
+    +create(payload: OwnerPayload): Promise<Owner>
+    +update(ownerId, payload): Promise<Owner>
+    +remove(ownerId: number): Promise<void>
+  }
+
+  class EvaluationService_FE <<service>> {
+    +create(payload: EvaluationPayload): Promise<Evaluation>
+    +getById(evaluationId: number): Promise<Evaluation>
+    +list(): Promise<Evaluation[]>
+    +listByPatient(patientId: number): Promise<Evaluation[]>
+    +process(evaluationId: number): Promise<ProcessEvaluationResponse>
+    +listResults(evaluationId: number): Promise<PersistedInferenceResult[]>
+    +getEvaluationFacts(speciesId: number): Promise<FactDefinition[]>
+    +getEvaluationSymptoms(speciesId: number): Promise<FactDefinition[]>
+    +getEvaluationClinicalVariables(speciesId: number): Promise<FactDefinition[]>
+  }
+
+  class KnowledgeService_FE <<service>> {
+    +listDiseases(): Promise<Disease[]>
+    +listRules(): Promise<Rule[]>
+    +getRule(ruleId: number): Promise<Rule>
+    +createRule(payload: RulePayload): Promise<Rule>
+    +updateRule(ruleId, payload): Promise<Rule>
+    +updateRuleStatus(ruleId, payload): Promise<Rule>
+    +listRiskLevels(): Promise<RiskLevel[]>
+    +getKnowledgeBase(includeRules: boolean): Promise<KnowledgeBaseData>
+  }
+
+  class DashboardService_FE <<service>> {
+    +getDashboard(week?: WeekRange): Promise<DashboardData>
+    +getSummary(week?: WeekRange): Promise<SummaryCard[]>
+  }
+
+  class HistoryService_FE <<service>> {
+    +getPatientHistory(patientId: number): Promise<PatientHistorySummary>
+    +getAllHistories(): Promise<PatientHistorySummary[]>
+  }
+
+  class UserService_FE <<service>> {
+    +list(): Promise<User[]>
+    +create(payload: UserCreatePayload): Promise<User>
+    +update(userId, payload): Promise<User>
+    +updateStatus(userId, isActive): Promise<User>
+  }
+}
+
+' ======================================================
+' FRONTEND :: HOOKS (Estado reactivo)
+' ======================================================
+package "Frontend :: Hooks" #FFE8CC {
+
+  class useAuth <<hook>> {
+    +token: string | null
+    +user: AuthUser
+    +role: string | null
+    +isAdmin: boolean
+    +isAuthenticated: boolean
+    --
+    +login(payload: LoginRequest): Promise<void>
+    +logout(): void
+  }
+
+  class useEvaluationFacts <<hook>> {
+    +data: FactDefinition[]
+    +symptoms: FactDefinition[]
+    +clinicalVariables: FactDefinition[]
+    +error: string
+    +isLoading: boolean
+  }
+}
+
+' ======================================================
+' RELACIONES :: MODELOS BACKEND
+' ======================================================
+
+' Taxonomía
+Species "1" --o{ "0..*" Breed       : tiene >
+Species "1" --o{ "0..*" Patient     : categoriza >
+Species "1" --o{ "0..*" Disease     : afecta >
+Species "1" --o{ "0..*" Symptom     : aplica >
+Species "1" --o{ "0..*" ClinicalVariable : aplica >
+
+' Propietario / Paciente
+Owner   "1" --o{ "1..*" Patient     : posee >
+Patient }o-- "1"  Breed             : tiene raza >
+Patient }o-- "1"  User              : "creado por" >
+Patient "1" --o{ "0..*" EvaluationClinical : tiene >
+Patient "1" --o{ "0..*" ClinicalHistory    : registra >
+
+' Usuario / Rol
+Role "1" --o{ "0..*" User           : otorga >
+User "1" --o{ "0..*" EvaluationClinical : realiza >
+User "1" --o| "0..*" PasswordResetToken : posee >
+
+' Evaluación
+EvaluationClinical "1" *-- "1..*" EvaluationClinicalFact : contiene >
+EvaluationClinical "1" --o{ "0..*" InferenceResult        : genera >
+EvaluationClinical "1" --o| "0..*" ClinicalHistory        : origina >
+
+' Resultados de inferencia
+InferenceResult "1" *-- "0..*" ActivatedRule  : registra >
+InferenceResult }o-- "1" Disease              : diagnostica >
+InferenceResult }o-- "1" RiskLevel            : clasifica >
+ActivatedRule   }o-- "1" InferenceRule        : referencia >
+
+' Base de conocimiento
+Disease "1" --o{ "0..*" InferenceRule        : define >
+Disease "1" --o{ "0..*" ClinicalProbability  : estima >
+RiskLevel "1" --o{ "0..*" InferenceRule      : asigna >
+InferenceRule "1" *-- "1..*" RuleCondition   : compone >
+InferenceRule "1" --o{ "0..*" RuleReference  : respalda >
+KnowledgeSource "1" --o{ "0..*" RuleReference : citada >
+
+' Probabilidades clínicas
+ClinicalProbability }o-- "0..1" Symptom          : evalúa >
+ClinicalProbability }o-- "0..1" ClinicalVariable  : mide >
+
+' Catálogo de hechos
+FactDefinition }o-- "0..1" Species           : aplica >
+FactDefinition }o-- "0..1" Symptom           : mapea >
+FactDefinition }o-- "0..1" ClinicalVariable  : mapea >
+
+' ======================================================
+' RELACIONES :: REPOSITORIOS
+' ======================================================
+
+BaseRepository <|-- SpeciesRepository
+BaseRepository <|-- BreedRepository
+BaseRepository <|-- OwnerRepository
+BaseRepository <|-- PatientRepository
+BaseRepository <|-- UserRepository
+BaseRepository <|-- EvaluationRepository
+BaseRepository <|-- RuleRepository
+BaseRepository <|-- ClinicalProbabilityRepository
+
+SpeciesRepository            ..> Species           : gestiona
+BreedRepository              ..> Breed             : gestiona
+OwnerRepository              ..> Owner             : gestiona
+PatientRepository            ..> Patient           : gestiona
+UserRepository               ..> User              : gestiona
+EvaluationRepository         ..> EvaluationClinical : gestiona
+ResultRepository             ..> InferenceResult   : gestiona
+RuleRepository               ..> InferenceRule     : gestiona
+CatalogRepository            ..> Disease           : gestiona
+CatalogRepository            ..> Symptom           : gestiona
+CatalogRepository            ..> ClinicalVariable  : gestiona
+HistoryRepository            ..> ClinicalHistory   : gestiona
+PasswordResetTokenRepository ..> PasswordResetToken : gestiona
+
+' ======================================================
+' RELACIONES :: SERVICIOS BACKEND
+' ======================================================
+
+AuthService ..> UserRepository               : usa
+AuthService ..> PasswordResetTokenRepository : usa
+AuthService ..> EmailService                 : usa
+
+UserService      ..> UserRepository      : usa
+OwnerService     ..> OwnerRepository     : usa
+PatientService   ..> PatientRepository   : usa
+PatientService   ..> BreedRepository     : usa
+SpeciesService   ..> SpeciesRepository   : usa
+BreedService     ..> BreedRepository     : usa
+EvaluationService ..> EvaluationRepository : usa
+EvaluationService ..> PatientRepository  : usa
+RuleService      ..> RuleRepository      : usa
+CatalogService   ..> CatalogRepository   : usa
+HistoryService   ..> HistoryRepository   : usa
+
+InferenceService ..> RuleRepository        : usa
+InferenceService ..> PatientRepository     : usa
+InferenceService ..> EvaluationRepository  : usa
+InferenceService ..> ResultRepository      : usa
+InferenceService ..> InferenceEngine       : usa
+InferenceService ..> BayesService          : usa
+BayesService     ..> ClinicalProbabilityRepository : usa
+
+' ======================================================
+' RELACIONES :: MOTOR DE INFERENCIA
+' ======================================================
+
+InferenceEngine ..> ConditionEvaluator : usa
+InferenceEngine ..> ConditionTrace     : produce
+InferenceEngine ..> InferenceRule      : evalúa
+
+' ======================================================
+' RELACIONES :: EXCEPCIONES
+' ======================================================
+
+AppException <|-- NotFoundError
+AppException <|-- ConflictError
+AppException <|-- UnauthorizedError
+AppException <|-- ForbiddenError
+
+' ======================================================
+' RELACIONES :: TIPOS FRONTEND
+' ======================================================
+
+FE_Patient ..> FE_Owner   : tiene propietario >
+FE_Patient ..> FE_Species : es de especie >
+FE_Patient ..> FE_Breed   : tiene raza >
+FE_Breed   ..> FE_Species : pertenece >
+FE_User    ..> FE_Role    : tiene >
+
+FE_Evaluation              ..>  FE_ClinicalFactOut          : contiene >
+FE_PersistedInferenceResult ..> FE_PersistedActivatedRule   : registra >
+FE_Rule                    ..>  FE_RuleCondition            : compone >
+
+FE_PatientHistorySummary   ..> FE_Patient                  : describe >
+FE_PatientHistorySummary   ..> FE_PatientHistoryEvaluation  : contiene >
+FE_PatientHistoryEvaluation ..> FE_Evaluation              : envuelve >
+FE_PatientHistoryEvaluation ..> FE_PersistedInferenceResult : incluye >
+
+' ======================================================
+' RELACIONES :: SERVICIOS FRONTEND
+' ======================================================
+
+AuthService_FE      ..> ApiClient : usa
+PatientService_FE   ..> ApiClient : usa
+OwnerService_FE     ..> ApiClient : usa
+EvaluationService_FE ..> ApiClient : usa
+KnowledgeService_FE ..> ApiClient : usa
+DashboardService_FE ..> ApiClient : usa
+HistoryService_FE   ..> ApiClient : usa
+UserService_FE      ..> ApiClient : usa
+
+AuthService_FE      ..> FE_User                    : produce
+PatientService_FE   ..> FE_Patient                 : produce
+PatientService_FE   ..> FE_Species                 : produce
+PatientService_FE   ..> FE_Breed                   : produce
+OwnerService_FE     ..> FE_Owner                   : produce
+EvaluationService_FE ..> FE_Evaluation             : produce
+EvaluationService_FE ..> FE_PersistedInferenceResult : produce
+EvaluationService_FE ..> FE_FactDefinition          : produce
+KnowledgeService_FE ..> FE_Disease                 : produce
+KnowledgeService_FE ..> FE_Rule                    : produce
+KnowledgeService_FE ..> FE_RiskLevel               : produce
+DashboardService_FE ..> FE_DashboardData           : produce
+HistoryService_FE   ..> FE_PatientHistorySummary   : produce
+UserService_FE      ..> FE_User                    : produce
+
+' ======================================================
+' RELACIONES :: HOOKS FRONTEND
+' ======================================================
+
+useAuth            ..> AuthService_FE     : usa
+useAuth            ..> FE_AuthState       : gestiona
+useEvaluationFacts ..> EvaluationService_FE : usa
+useEvaluationFacts ..> FE_FactDefinition  : carga
+
+@enduml
