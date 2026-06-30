@@ -16,10 +16,10 @@ type FormValues = {
 function getErrorMessage(error: unknown) {
   if (error && typeof error === "object" && "response" in error) {
     const response = (error as { response?: { data?: { detail?: string } } }).response;
-    return response?.data?.detail ?? "No fue posible restablecer la contrasena.";
+    return response?.data?.detail ?? "No fue posible restablecer la contraseña.";
   }
 
-  return "No fue posible restablecer la contrasena.";
+  return "No fue posible restablecer la contraseña.";
 }
 
 export function ResetPasswordPage() {
@@ -41,11 +41,11 @@ export function ResetPasswordPage() {
       return;
     }
     if (values.newPassword.length < 8) {
-      setError("La nueva contrasena debe tener al menos 8 caracteres.");
+      setError("La nueva contraseña debe tener al menos 8 caracteres.");
       return;
     }
     if (values.newPassword !== values.confirmPassword) {
-      setError("Las contrasenas no coinciden.");
+      setError("Las contraseñas no coinciden.");
       return;
     }
 
@@ -68,8 +68,8 @@ export function ResetPasswordPage() {
           <span className="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-[#4635D3] text-[#4635D3]">
             <KeyRound size={30} />
           </span>
-          <h1 className="mt-4 text-2xl font-extrabold text-[#172554]">Restablecer contrasena</h1>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">Ingresa el codigo recibido y define una nueva contrasena.</p>
+          <h1 className="mt-4 text-2xl font-extrabold text-[#172554]">Restablecer contraseña</h1>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">Ingresa el codigo recibido y define una nueva contraseña.</p>
         </div>
 
         {error ? <AlertMessage message={error} tone="error" onClose={() => setError("")} /> : null}
@@ -87,7 +87,7 @@ export function ResetPasswordPage() {
             />
             <FormField
               autoComplete="new-password"
-              label="Nueva contrasena"
+              label="Nueva contraseña"
               minLength={8}
               onChange={(event) => setValues((current) => ({ ...current, newPassword: event.target.value }))}
               required
@@ -96,7 +96,7 @@ export function ResetPasswordPage() {
             />
             <FormField
               autoComplete="new-password"
-              label="Confirmar nueva contrasena"
+              label="Confirmar nueva contraseña"
               minLength={8}
               onChange={(event) => setValues((current) => ({ ...current, confirmPassword: event.target.value }))}
               required
@@ -104,7 +104,7 @@ export function ResetPasswordPage() {
               value={values.confirmPassword}
             />
             <Button className="w-full" disabled={isSubmitting} icon={isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />} type="submit">
-              {isSubmitting ? "Restableciendo..." : "Restablecer contrasena"}
+              {isSubmitting ? "Restableciendo..." : "Restablecer contraseña"}
             </Button>
           </form>
         ) : null}
