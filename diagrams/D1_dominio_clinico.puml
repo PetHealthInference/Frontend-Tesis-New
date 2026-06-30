@@ -1,0 +1,124 @@
+@startuml
+title D1 - Diagrama de Clases: Dominio Clínico
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+
+package "Dominio Clínico" {
+
+  class Species {
+    +id: int
+    +name: string
+    +description: string
+    +is_active: bool
+  }
+
+  class Breed {
+    +id: int
+    +name: string
+    +species_id: int
+    +is_active: bool
+  }
+
+  class Owner {
+    +id: int
+    +first_name: string
+    +last_name: string
+    +document_type: string
+    +document_number: string
+    +phone: string
+    +email: string
+    +department: string
+    +district: string
+    +address: string
+  }
+
+  class Patient {
+    +id: int
+    +name: string
+    +sex: string
+    +birth_date: date
+    +weight: float
+    +owner_id: int
+    +species_id: int
+    +breed_id: int
+    +created_by_user_id: int
+    +is_active: bool
+  }
+
+  class ClinicalHistory {
+    +id: int
+    +patient_id: int
+    +evaluation_id: int
+    +event_type: string
+    +description: string
+    +created_at: datetime
+  }
+
+  class EvaluationClinical {
+    +id: int
+    +patient_id: int
+    +user_id: int
+    +reason: string
+    +clinical_notes: string
+    +status: string
+    +created_at: datetime
+  }
+
+  class EvaluationClinicalFact {
+    +id: int
+    +evaluation_id: int
+    +fact_key: string
+    +fact_type: string
+    +value: string
+    +numeric_value: float
+    +unit: string
+  }
+
+  class User {
+    +id: int
+    +first_name: string
+    +last_name: string
+    +email: string
+    +role_id: int
+    +is_active: bool
+  }
+
+  class Role {
+    +id: int
+    +name: string
+    +description: string
+  }
+}
+
+Species "1" -- "0..*" Breed : clasifica
+Species "1" -- "0..*" Patient : especie
+Breed "1" -- "0..*" Patient : raza
+
+Owner "1" -- "0..*" Patient : posee
+Role "1" -- "0..*" User : asigna
+User "1" -- "0..*" Patient : registra
+
+Patient "1" -- "0..*" EvaluationClinical : acumula
+User "1" -- "0..*" EvaluationClinical : realiza
+
+EvaluationClinical "1" -- "0..*" EvaluationClinicalFact : contiene
+Patient "1" -- "0..*" ClinicalHistory : historial
+EvaluationClinical "1" -- "0..*" ClinicalHistory : registra evento
+
+note right of Patient
+Entidad central del sistema.
+Representa al paciente veterinario,
+asociado a un propietario, especie,
+raza y evaluaciones clínicas.
+end note
+
+note bottom of EvaluationClinical
+Cada evaluación registra una sesión
+clínica y almacena los hechos observados
+que serán usados por el motor de inferencia.
+end note
+
+@enduml

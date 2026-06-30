@@ -1,0 +1,175 @@
+@startuml
+title D3 - Diagrama de Clases: Motor de Inferencia y Resultados
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+
+package "Evaluación Clínica" {
+
+  class EvaluationClinical {
+    +id: int
+    +patient_id: int
+    +user_id: int
+    +reason: string
+    +clinical_notes: string
+    +status: string
+    +created_at: datetime
+  }
+
+  class EvaluationClinicalFact {
+    +id: int
+    +evaluation_id: int
+    +fact_key: string
+    +fact_type: string
+    +value: string
+    +numeric_value: float
+    +unit: string
+  }
+}
+
+package "Motor de Inferencia" {
+
+  class InferenceService {
+    +process_evaluation(evaluation_id: int): List<InferenceResult>
+    +combine_rule_and_bayes(rule_score: float, bayes_probability: float): float
+    +persist_results(results: List): void
+  }
+
+  class InferenceEngine {
+    +evaluate_rules(facts: List, rules: List<InferenceRule>): List<ConditionTrace>
+    +calculate_rule_score(traces: List<ConditionTrace>): float
+  }
+
+  class ConditionEvaluator {
+    +evaluate(condition: RuleCondition, facts: List): bool
+    +compare(value: string, operator: string, expected: string): bool
+  }
+
+  class ConditionTrace {
+    +rule_id: int
+    +condition_key: string
+    +expected_value: string
+    +observed_value: string
+    +operator: string
+    +matched: bool
+    +explanation: string
+  }
+
+  class BayesService {
+    +calculate_probability(disease: Disease, facts: List): float
+    +get_evidence_probabilities(disease_id: int): List<ClinicalProbability>
+  }
+}
+
+package "Base de Conocimiento Usada por el Motor" {
+
+  class Disease {
+    +id: int
+    +name: string
+    +species_id: int
+  }
+
+  class ClinicalProbability {
+    +id: int
+    +disease_id: int
+    +fact_key: string
+    +probability: float
+  }
+
+  class RiskLevel {
+    +id: int
+    +name: string
+    +priority: int
+  }
+
+  class InferenceRule {
+    +id: int
+    +name: string
+    +disease_id: int
+    +risk_level_id: int
+    +weight: float
+    +is_active: bool
+  }
+
+  class RuleCondition {
+    +id: int
+    +rule_id: int
+    +fact_key: string
+    +operator: string
+    +expected_value: string
+  }
+}
+
+package "Resultados Persistidos" {
+
+  class InferenceResult {
+    +id: int
+    +evaluation_id: int
+    +disease_id: int
+    +risk_level_id: int
+    +bayes_probability: float
+    +rule_score: float
+    +final_probability: float
+    +diagnostic_suggestion: string
+    +created_at: datetime
+  }
+
+  class ActivatedRule {
+    +id: int
+    +inference_result_id: int
+    +rule_id: int
+    +explanation: string
+    +trace: json
+  }
+}
+
+EvaluationClinical "1" -- "0..*" EvaluationClinicalFact : contiene
+EvaluationClinical "1" -- "0..*" InferenceResult : genera
+
+InferenceService ..> EvaluationClinical : obtiene evaluación
+InferenceService ..> EvaluationClinicalFact : usa hechos clínicos
+InferenceService ..> InferenceEngine : evalúa reglas
+InferenceService ..> BayesService : calcula probabilidad
+InferenceService ..> InferenceResult : persiste resultados
+InferenceService ..> ActivatedRule : registra trazabilidad
+
+InferenceEngine ..> InferenceRule : evalúa
+InferenceEngine ..> RuleCondition : procesa condiciones
+InferenceEngine ..> ConditionEvaluator : delega evaluación
+InferenceEngine ..> ConditionTrace : genera trazas
+
+ConditionEvaluator ..> RuleCondition : compara condición
+ConditionEvaluator ..> EvaluationClinicalFact : contra hechos observados
+
+BayesService ..> Disease : analiza enfermedad
+BayesService ..> ClinicalProbability : consulta probabilidades
+
+Disease "1" -- "0..*" InferenceRule : posee
+Disease "1" -- "0..*" ClinicalProbability : probabilidades
+InferenceRule "1" -- "1..*" RuleCondition : condiciones
+RiskLevel "1" -- "0..*" InferenceRule : clasifica
+
+Disease "1" -- "0..*" InferenceResult : resultado para
+RiskLevel "1" -- "0..*" InferenceResult : nivel asignado
+InferenceResult "1" -- "0..*" ActivatedRule : explica
+InferenceRule "1" -- "0..*" ActivatedRule : fue activada
+
+note right of InferenceService
+Servicio orquestador del motor híbrido.
+
+1. Obtiene los hechos clínicos.
+2. Ejecuta reglas IF-THEN.
+3. Calcula probabilidades con Naive Bayes.
+4. Combina los resultados.
+5. Persiste diagnóstico, riesgo y trazabilidad.
+end note
+
+note bottom of ActivatedRule
+Permite explicar qué reglas fueron activadas
+y por qué el sistema llegó a un resultado.
+Esto aporta trazabilidad clínica.
+end note
+
+@enduml

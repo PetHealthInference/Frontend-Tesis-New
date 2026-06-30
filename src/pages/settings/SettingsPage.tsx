@@ -86,7 +86,7 @@ function validateUserForm(values: UserFormValues): FormErrors {
   }
 
   if (values.password.length < 8) {
-    errors.password = "La contrasena debe tener al menos 8 caracteres.";
+    errors.password = "La contraseña debe tener al menos 8 caracteres.";
   }
 
   if (!values.role_id) {
@@ -110,17 +110,17 @@ function validatePasswordForm(values: PasswordFormValues): PasswordFormErrors {
   const errors: PasswordFormErrors = {};
 
   if (values.current_password.length < 8) {
-    errors.current_password = "La contrasena actual debe tener al menos 8 caracteres.";
+    errors.current_password = "La contraseña actual debe tener al menos 8 caracteres.";
   }
 
   if (values.new_password.length < 8) {
-    errors.new_password = "La nueva contrasena debe tener al menos 8 caracteres.";
+    errors.new_password = "La nueva contraseña debe tener al menos 8 caracteres.";
   } else if (values.new_password === values.current_password) {
-    errors.new_password = "La nueva contrasena debe ser diferente de la actual.";
+    errors.new_password = "La nueva contraseña debe ser diferente de la actual.";
   }
 
   if (values.confirm_password !== values.new_password) {
-    errors.confirm_password = "Las contrasenas no coinciden.";
+    errors.confirm_password = "Las contraseñas no coinciden.";
   }
 
   return errors;
@@ -140,6 +140,15 @@ function roleLabel(role?: string | null) {
   }
 
   return "SIN ROL";
+}
+
+function findUserByEmail(users: User[], email: string, ignoredUserId?: number) {
+  const normalizedEmail = email.trim().toLowerCase();
+  return users.find((item) => item.email.trim().toLowerCase() === normalizedEmail && item.id !== ignoredUserId);
+}
+
+function isDuplicateEmailError(message: string) {
+  return message.toLowerCase().includes("ya existe") && message.toLowerCase().includes("correo");
 }
 
 export function SettingsPage() {
@@ -270,6 +279,12 @@ export function SettingsPage() {
     }
 
     const nextErrors = validateUserForm(userForm);
+    const duplicatedUser = findUserByEmail(users, userForm.email);
+
+    if (duplicatedUser) {
+      nextErrors.email = "Ya existe un usuario con ese correo.";
+    }
+
     setFormErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
@@ -291,7 +306,13 @@ export function SettingsPage() {
       setUserForm(initialUserForm);
       setMessage("Usuario creado correctamente.");
     } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
+      const errorMessage = getErrorMessage(caughtError);
+
+      if (isDuplicateEmailError(errorMessage)) {
+        setFormErrors((current) => ({ ...current, email: errorMessage }));
+      }
+
+      setError(errorMessage);
     } finally {
       setIsCreatingUser(false);
     }
@@ -327,6 +348,12 @@ export function SettingsPage() {
     }
 
     const nextErrors = validateEditUserForm(editUserForm);
+    const duplicatedUser = findUserByEmail(users, editUserForm.email, userToEdit.id);
+
+    if (duplicatedUser) {
+      nextErrors.email = "Ya existe un usuario con ese correo.";
+    }
+
     setEditFormErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
@@ -349,7 +376,13 @@ export function SettingsPage() {
       setUserToEdit(null);
       setMessage("Usuario actualizado correctamente.");
     } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
+      const errorMessage = getErrorMessage(caughtError);
+
+      if (isDuplicateEmailError(errorMessage)) {
+        setEditFormErrors((current) => ({ ...current, email: errorMessage }));
+      }
+
+      setError(errorMessage);
     } finally {
       setIsUpdatingUser(false);
     }
@@ -490,12 +523,12 @@ export function SettingsPage() {
           <Card className="p-6">
             <h2 className="mb-4 flex items-center gap-3 text-xl font-extrabold text-[#172554]">
               <Lock size={24} />
-              Cambio de contrasena
+              Cambio de contraseña
             </h2>
             <form className="space-y-4" onSubmit={handleChangePassword}>
               <FormField
                 error={passwordFormErrors.current_password}
-                label="Contrasena actual"
+                label="Contraseña actual"
                 minLength={8}
                 onChange={(event) => updatePasswordForm("current_password", event.target.value)}
                 required
@@ -504,8 +537,8 @@ export function SettingsPage() {
               />
               <FormField
                 error={passwordFormErrors.new_password}
-                helpText="Minimo 8 caracteres y diferente de la contrasena actual."
-                label="Nueva contrasena"
+                helpText="Minimo 8 caracteres y diferente de la contraseña actual."
+                label="Nueva contraseña"
                 minLength={8}
                 onChange={(event) => updatePasswordForm("new_password", event.target.value)}
                 required
@@ -514,7 +547,7 @@ export function SettingsPage() {
               />
               <FormField
                 error={passwordFormErrors.confirm_password}
-                label="Confirmar nueva contrasena"
+                label="Confirmar nueva contraseña"
                 minLength={8}
                 onChange={(event) => updatePasswordForm("confirm_password", event.target.value)}
                 required
@@ -522,7 +555,7 @@ export function SettingsPage() {
                 value={passwordForm.confirm_password}
               />
               <Button disabled={isChangingPassword} icon={<Save size={18} />} type="submit">
-                {isChangingPassword ? "Actualizando..." : "Actualizar contrasena"}
+                {isChangingPassword ? "Actualizando..." : "Actualizar contraseña"}
               </Button>
             </form>
           </Card>
@@ -556,7 +589,7 @@ export function SettingsPage() {
               />
               <FormField
                 error={formErrors.password}
-                label="Contrasena"
+                label="Contraseña"
                 minLength={8}
                 onChange={(event) => updateUserForm("password", event.target.value)}
                 placeholder="Minimo 8 caracteres"
@@ -668,8 +701,8 @@ export function SettingsPage() {
           />
           <FormField
             error={editFormErrors.password}
-            helpText="Dejalo vacio para conservar la contrasena actual."
-            label="Nueva contrasena"
+            helpText="Dejalo vacio para conservar la contraseña actual."
+            label="Nueva contraseña"
             minLength={8}
             onChange={(event) => updateEditUserForm("password", event.target.value)}
             placeholder="Opcional"

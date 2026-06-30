@@ -62,9 +62,9 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
   return (
     <div>
       <div className="mb-6 text-center">
-        <h2 className="text-2xl font-extrabold text-[#172554] sm:text-[1.7rem]">Recuperar contrasena</h2>
+        <h2 className="text-2xl font-extrabold text-[#172554] sm:text-[1.7rem]">Recuperar contraseña</h2>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-          Ingresa tu correo y enviaremos un codigo temporal si existe una cuenta asociada.
+          Ingresa tu correo y enviaremos un código temporal si existe una cuenta asociada.
         </p>
       </div>
 
@@ -87,7 +87,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
         </label>
 
         <Button className="h-[3.25rem] w-full rounded-lg text-base shadow-[0_12px_24px_rgba(70,53,211,0.20)]" disabled={isSubmitting} icon={isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />} type="submit">
-          {isSubmitting ? "Enviando..." : "Enviar codigo de recuperacion"}
+          {isSubmitting ? "Enviando..." : "Enviar código de recuperación"}
         </Button>
       </form>
 
@@ -96,14 +96,14 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
         onClick={onBack}
         type="button"
       >
-        Volver al inicio de sesion
+        Volver al inicio de sesión
       </button>
 
       <div className="mt-5 flex items-start gap-3 border-t border-slate-100 pt-5 text-sm font-semibold leading-6 text-slate-500">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-violet-50 text-[#4635D3]">
           <Info size={18} />
         </span>
-        <span>El codigo temporal no expone la contrasena actual y vence segun la configuracion del backend.</span>
+        <span>El código temporal no expone la contraseña actual y vence en 15 minutos.</span>
       </div>
     </div>
   );

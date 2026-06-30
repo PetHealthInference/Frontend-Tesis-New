@@ -5,7 +5,7 @@ Aplicación web desarrollada con React, Vite y TypeScript para el OE3 de la tesi
 ## Funcionalidades
 
 - Autenticación mediante JWT y protección de rutas privadas.
-- Recuperacion de contrasena mediante token temporal y envio EmailJS desde React.
+- Recuperacion de contraseña mediante token temporal y envio EmailJS desde React.
 - Gestión de propietarios y pacientes.
 - Consumo de catálogos reales: especies, razas, síntomas y variables clínicas.
 - Registro de evaluaciones clínicas con *facts* estructurados.
@@ -55,7 +55,7 @@ VITE_EMAILJS_TEMPLATE_ID=<TEMPLATE_ID_EMAILJS>
 VITE_EMAILJS_PUBLIC_KEY=<PUBLIC_KEY_EMAILJS>
 ```
 
-Para otra instancia del backend, cambie `VITE_API_BASE_URL`. Para recuperacion de contrasena, configure EmailJS con un template que reciba `to_email`, `to_name`, `reset_url`, `verification_code`, `reset_token`, `expires_minutes` y `app_name`. No incluya tokens JWT, contrasenas ni claves privadas en variables expuestas con el prefijo `VITE_`.
+Para otra instancia del backend, cambie `VITE_API_BASE_URL`. Para recuperacion de contraseña, configure EmailJS con un template que reciba `to_email`, `to_name`, `reset_url`, `verification_code`, `reset_token`, `expires_minutes` y `app_name`. No incluya tokens JWT, contraseñas ni claves privadas en variables expuestas con el prefijo `VITE_`.
 
 ## Comandos disponibles
 
