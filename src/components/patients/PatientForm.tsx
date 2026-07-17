@@ -19,6 +19,7 @@ type PatientFormProps = {
   isSaving: boolean;
   error?: string;
   mode: "create" | "edit";
+  onCancel?: () => void;
   onSpeciesChange: (speciesId: number | null) => void;
   onSubmit: (payload: PatientPayload) => Promise<void>;
 };
@@ -96,6 +97,7 @@ export function PatientForm({
   mode,
   isSaving,
   error,
+  onCancel,
   onSpeciesChange,
   onSubmit,
 }: PatientFormProps) {
@@ -117,12 +119,19 @@ export function PatientForm({
 
   const [values, setValues] = useState<PatientFormValues>(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [breedQuery, setBreedQuery] = useState(patient?.breed?.name ?? "");
+  const [isBreedListOpen, setIsBreedListOpen] = useState(false);
+  const matchingBreeds = useMemo(() => {
+    const query = breedQuery.trim().toLocaleLowerCase();
+    return breeds.filter((breed) => breed.name.toLocaleLowerCase().includes(query));
+  }, [breedQuery, breeds]);
 
   useEffect(() => {
-    if (!patient && initialOwnerId) {
-      setValues((current) => ({ ...current, owner_id: initialOwnerId }));
-    }
-  }, [initialOwnerId, patient]);
+    setValues(!patient && initialOwnerId ? { ...initialValues, owner_id: initialOwnerId } : initialValues);
+    setErrors({});
+    setBreedQuery(patient?.breed?.name ?? "");
+    setIsBreedListOpen(false);
+  }, [initialOwnerId, initialValues, patient]);
 
   useEffect(() => {
     if (values.species_id) {
@@ -148,7 +157,26 @@ export function PatientForm({
       [field]: value,
       ...(field === "species_id" ? { breed_id: "" } : {}),
     }));
+    if (field === "species_id") {
+      setBreedQuery("");
+      setIsBreedListOpen(false);
+    }
     setErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  function updateBreedQuery(query: string) {
+    const selectedBreed = breeds.find((breed) => breed.name.toLocaleLowerCase() === query.trim().toLocaleLowerCase());
+    setBreedQuery(query);
+    setValues((current) => ({ ...current, breed_id: selectedBreed ? String(selectedBreed.id) : "" }));
+    setErrors((current) => ({ ...current, breed_id: undefined }));
+    setIsBreedListOpen(true);
+  }
+
+  function selectBreed(breed: Breed) {
+    setBreedQuery(breed.name);
+    setValues((current) => ({ ...current, breed_id: String(breed.id) }));
+    setErrors((current) => ({ ...current, breed_id: undefined }));
+    setIsBreedListOpen(false);
   }
 
   return (
@@ -208,21 +236,35 @@ export function PatientForm({
             ))}
           </FormSelect>
 
-          <FormSelect
-            disabled={!values.species_id}
-            error={errors.breed_id}
-            label="Raza"
-            onChange={(event) => updateField("breed_id", event.target.value)}
-            required
-            value={values.breed_id}
-          >
-            <option value="">Selecciona una raza</option>
-            {breeds.map((breed) => (
-              <option key={breed.id} value={breed.id}>
-                {breed.name}
-              </option>
-            ))}
-          </FormSelect>
+          <label className="relative block">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Raza <span className="text-red-500">*</span></span>
+            <input
+              className={`h-12 w-full rounded-lg border bg-white px-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#4635D3] focus:ring-4 focus:ring-[#4635D3]/10 disabled:bg-slate-50 disabled:text-slate-400 ${errors.breed_id ? "border-red-300" : "border-slate-200"}`}
+              disabled={!values.species_id}
+              onChange={(event) => updateBreedQuery(event.target.value)}
+              onFocus={() => setIsBreedListOpen(true)}
+              placeholder="Escribe o selecciona una raza"
+              required
+              value={breedQuery}
+            />
+            {isBreedListOpen && values.species_id ? (
+              <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg" role="listbox">
+                {matchingBreeds.length ? matchingBreeds.map((breed) => (
+                  <button
+                    className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-violet-50 hover:text-[#3026A6]"
+                    key={breed.id}
+                    onMouseDown={(event) => { event.preventDefault(); selectBreed(breed); }}
+                    role="option"
+                    type="button"
+                  >
+                    {breed.name}
+                  </button>
+                )) : <p className="px-4 py-2 text-sm text-slate-500">No se encontraron razas.</p>}
+              </div>
+            ) : null}
+            {errors.breed_id ? <span className="mt-2 block text-xs font-semibold text-red-600">{errors.breed_id}</span> : null}
+            {!errors.breed_id ? <span className="mt-2 block text-xs font-medium text-slate-500">Escribe para filtrar y selecciona una raza de la lista.</span> : null}
+          </label>
 
           <FormSelect
             error={errors.sex}
@@ -260,12 +302,18 @@ export function PatientForm({
       </Card>
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Link
-          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
-          to="/patients"
-        >
-          Cancelar
-        </Link>
+        {onCancel ? (
+          <Button onClick={onCancel} type="button" variant="secondary">
+            Cancelar
+          </Button>
+        ) : (
+          <Link
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-[#3026A6] shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-[#4635D3]/30"
+            to="/patients"
+          >
+            Cancelar
+          </Link>
+        )}
         <Button disabled={isSaving} icon={<Save size={19} />} type="submit">
           {isSaving ? "Guardando..." : mode === "create" ? "Guardar paciente" : "Guardar cambios"}
         </Button>

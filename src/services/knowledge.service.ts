@@ -1,4 +1,4 @@
-import type { KnowledgeBaseData, Disease, RiskLevel, Rule } from "../types/knowledge";
+import type { KnowledgeBaseData, Disease, RiskLevel, Rule, RulePayload, RuleStatusPayload } from "../types/knowledge";
 import { api } from "./api";
 import { evaluationService } from "./evaluation.service";
 
@@ -13,17 +13,37 @@ export const knowledgeService = {
     return data;
   },
 
+  async getRule(ruleId: number) {
+    const { data } = await api.get<Rule>(`/api/v1/rules/${ruleId}`);
+    return data;
+  },
+
+  async createRule(payload: RulePayload) {
+    const { data } = await api.post<Rule>("/api/v1/rules", payload);
+    return data;
+  },
+
+  async updateRule(ruleId: number, payload: Partial<RulePayload>) {
+    const { data } = await api.put<Rule>(`/api/v1/rules/${ruleId}`, payload);
+    return data;
+  },
+
+  async updateRuleStatus(ruleId: number, payload: RuleStatusPayload) {
+    const { data } = await api.patch<Rule>(`/api/v1/rules/${ruleId}/status`, payload);
+    return data;
+  },
+
   async listRiskLevels() {
     const { data } = await api.get<RiskLevel[]>("/api/v1/risk-levels");
     return data;
   },
 
-  async getKnowledgeBase(): Promise<KnowledgeBaseData> {
+  async getKnowledgeBase(includeRules = false): Promise<KnowledgeBaseData> {
     const [diseases, symptoms, clinicalVariables, rules, riskLevels] = await Promise.all([
       this.listDiseases(),
       evaluationService.listSymptoms(),
       evaluationService.listClinicalVariables(),
-      this.listRules(),
+      includeRules ? this.listRules() : Promise.resolve([]),
       this.listRiskLevels(),
     ]);
 

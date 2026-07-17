@@ -1,0 +1,280 @@
+@startuml
+title D4 - Diagrama de Clases: Frontend React y Consumo de API
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+
+package "Frontend :: Tipos TypeScript" {
+
+  class FE_Owner <<interface>> {
+    +id: number
+    +firstName: string
+    +lastName: string
+    +documentNumber: string
+    +phone: string
+    +email: string
+  }
+
+  class FE_Species <<interface>> {
+    +id: number
+    +name: string
+  }
+
+  class FE_Breed <<interface>> {
+    +id: number
+    +name: string
+    +speciesId: number
+  }
+
+  class FE_Patient <<interface>> {
+    +id: number
+    +name: string
+    +sex: string
+    +weight: number
+    +owner: FE_Owner
+    +species: FE_Species
+    +breed: FE_Breed
+  }
+
+  class FE_ClinicalFact <<interface>> {
+    +factKey: string
+    +factType: string
+    +value: string
+    +numericValue: number
+    +unit: string
+  }
+
+  class FE_Evaluation <<interface>> {
+    +id: number
+    +patientId: number
+    +facts: FE_ClinicalFact[]
+    +createdAt: string
+  }
+
+  class FE_PersistedInferenceResult <<interface>> {
+    +id: number
+    +diseaseId: number
+    +riskLevelId: number
+    +bayesProbability: number
+    +ruleScore: number
+    +finalProbability: number
+    +activatedRules: FE_PersistedActivatedRule[]
+  }
+
+  class FE_PersistedActivatedRule <<interface>> {
+    +id: number
+    +ruleId: number
+    +explanation: string
+  }
+
+  class FE_Rule <<interface>> {
+    +id: number
+    +name: string
+    +diseaseId: number
+    +riskLevelId: number
+    +conditions: FE_RuleCondition[]
+  }
+
+  class FE_RuleCondition <<interface>> {
+    +factKey: string
+    +operator: string
+    +expectedValue: string
+  }
+
+  class FE_PatientHistorySummary <<interface>> {
+    +patient: FE_Patient
+    +evaluations: FE_Evaluation[]
+  }
+}
+
+package "Frontend :: Servicios API" {
+
+  class ApiClient {
+    +baseURL: string
+    +requestInterceptorJWT(): void
+    +get(url: string): Promise
+    +post(url: string, data: object): Promise
+    +put(url: string, data: object): Promise
+    +delete(url: string): Promise
+  }
+
+  class AuthService_FE {
+    +login(credentials): Promise
+    +logout(): void
+    +forgotPassword(email): Promise
+    +resetPassword(token, password): Promise
+  }
+
+  class OwnerService_FE {
+    +getOwners(): Promise
+    +createOwner(data): Promise
+    +updateOwner(id, data): Promise
+  }
+
+  class PatientService_FE {
+    +getPatients(): Promise
+    +createPatient(data): Promise
+    +updatePatient(id, data): Promise
+    +getPatientHistory(id): Promise
+  }
+
+  class EvaluationService_FE {
+    +createEvaluation(data): Promise
+    +processEvaluation(id): Promise
+    +getResults(evaluationId): Promise
+  }
+
+  class KnowledgeService_FE {
+    +getRules(): Promise
+    +createRule(data): Promise
+    +updateRule(id, data): Promise
+  }
+
+  class DashboardService_FE {
+    +getSummary(): Promise
+    +getRecentEvaluations(): Promise
+  }
+
+  class HistoryService_FE {
+    +getPatientHistory(patientId): Promise
+    +getClinicalHistory(): Promise
+  }
+}
+
+package "Frontend :: Hooks y Estado" {
+
+  class useAuth <<hook>> {
+    +user: object
+    +token: string
+    +isAuthenticated: bool
+    +login(): void
+    +logout(): void
+  }
+
+  class useEvaluationFacts <<hook>> {
+    +facts: FE_ClinicalFact[]
+    +addFact(): void
+    +removeFact(): void
+    +clearFacts(): void
+  }
+
+  class LocalStorage {
+    +jwtToken: string
+    +userData: string
+  }
+}
+
+package "Frontend :: Componentes de Página" {
+
+  class LoginPage
+  class DashboardPage
+  class OwnerPage
+  class PatientPage
+  class ClinicalEvaluationPage
+  class ResultsPage
+  class KnowledgeRulesPage
+  class HistoryPage
+}
+
+package "Backend :: Routers FastAPI" {
+
+  class AuthRouter {
+    +POST /auth/login
+    +POST /auth/forgot-password
+    +POST /auth/reset-password
+  }
+
+  class OwnerRouter {
+    +GET /owners
+    +POST /owners
+    +PUT /owners/{id}
+  }
+
+  class PatientRouter {
+    +GET /patients
+    +POST /patients
+    +PUT /patients/{id}
+    +GET /patients/{id}/history
+  }
+
+  class EvaluationRouter {
+    +POST /evaluations
+    +GET /evaluations/{id}
+    +POST /evaluations/{id}/process
+  }
+
+  class ResultRouter {
+    +GET /evaluations/{id}/results
+    +GET /results/{id}/activated-rules
+  }
+
+  class RuleRouter {
+    +GET /rules
+    +POST /rules
+    +PUT /rules/{id}
+    +DELETE /rules/{id}
+  }
+
+  class CatalogRouter {
+    +GET /species
+    +GET /breeds
+    +GET /symptoms
+    +GET /clinical-variables
+  }
+}
+
+FE_Patient "1" -- "1" FE_Owner
+FE_Patient "1" -- "1" FE_Species
+FE_Patient "1" -- "1" FE_Breed
+
+FE_Evaluation "1" -- "0..*" FE_ClinicalFact
+FE_PersistedInferenceResult "1" -- "0..*" FE_PersistedActivatedRule
+FE_Rule "1" -- "1..*" FE_RuleCondition
+FE_PatientHistorySummary "1" -- "1" FE_Patient
+FE_PatientHistorySummary "1" -- "0..*" FE_Evaluation
+
+AuthService_FE ..> ApiClient
+OwnerService_FE ..> ApiClient
+PatientService_FE ..> ApiClient
+EvaluationService_FE ..> ApiClient
+KnowledgeService_FE ..> ApiClient
+DashboardService_FE ..> ApiClient
+HistoryService_FE ..> ApiClient
+
+useAuth ..> AuthService_FE
+useAuth ..> LocalStorage
+useEvaluationFacts ..> FE_ClinicalFact
+
+LoginPage ..> useAuth
+DashboardPage ..> DashboardService_FE
+OwnerPage ..> OwnerService_FE
+PatientPage ..> PatientService_FE
+ClinicalEvaluationPage ..> EvaluationService_FE
+ClinicalEvaluationPage ..> useEvaluationFacts
+ResultsPage ..> EvaluationService_FE
+KnowledgeRulesPage ..> KnowledgeService_FE
+HistoryPage ..> HistoryService_FE
+
+ApiClient ..> AuthRouter : HTTP/JWT
+ApiClient ..> OwnerRouter : HTTP/JWT
+ApiClient ..> PatientRouter : HTTP/JWT
+ApiClient ..> EvaluationRouter : HTTP/JWT
+ApiClient ..> ResultRouter : HTTP/JWT
+ApiClient ..> RuleRouter : HTTP/JWT
+ApiClient ..> CatalogRouter : HTTP/JWT
+
+note right of ApiClient
+Instancia Axios centralizada.
+Agrega el token JWT en las peticiones
+mediante interceptor.
+end note
+
+note bottom of useAuth
+Gestiona autenticación en el frontend.
+El token y los datos del usuario
+se mantienen en localStorage.
+end note
+
+@enduml

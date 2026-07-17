@@ -21,6 +21,14 @@ export type UserCreatePayload = {
   role_id: number;
 };
 
+export type UserUpdatePayload = {
+  full_name?: string;
+  email?: string;
+  password?: string;
+  role_id?: number;
+  is_active?: boolean;
+};
+
 export type UserFormValues = {
   full_name: string;
   email: string;

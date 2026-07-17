@@ -19,6 +19,7 @@ import { AlertMessage } from "../../components/common/AlertMessage";
 import { Card } from "../../components/common/Card";
 import { DataTable } from "../../components/common/DataTable";
 import { knowledgeService } from "../../services/knowledge.service";
+import { useAuth } from "../../hooks/useAuth";
 import type { ClinicalVariable, CatalogItem } from "../../types/evaluation";
 import type { Disease, KnowledgeBaseData, KnowledgeTab, RiskLevel, Rule } from "../../types/knowledge";
 import { cn } from "../../utils/cn";
@@ -44,11 +45,11 @@ function getErrorMessage(error: unknown) {
 
 function speciesName(speciesId?: number | null) {
   if (speciesId === 1) {
-    return "Canino";
+    return "Perro";
   }
 
   if (speciesId === 2) {
-    return "Felino";
+    return "Gato";
   }
 
   return "General";
@@ -104,9 +105,13 @@ function probabilityRange(risk: RiskLevel) {
 }
 
 function conditionText(rule: Rule) {
-  return rule.conditions
-    .map((condition) => `${condition.variable_key} ${condition.operator} ${String(condition.expected_value)}`)
-    .join(" + ");
+  const groups = new Map<number, string[]>();
+  rule.conditions.forEach((condition) => {
+    const text = `${condition.variable_key} ${condition.operator} ${String(condition.expected_value)}`;
+    const group = condition.logical_group ?? 1;
+    groups.set(group, [...(groups.get(group) ?? []), text]);
+  });
+  return [...groups.values()].map((conditions) => `(${conditions.join(" AND ")})`).join(" OR ");
 }
 
 function variableRange(variable: ClinicalVariable) {
@@ -118,6 +123,7 @@ function variableRange(variable: ClinicalVariable) {
 }
 
 export function KnowledgeBasePage() {
+  const { isAdmin } = useAuth();
   const [data, setData] = useState<KnowledgeBaseData | null>(null);
   const [activeTab, setActiveTab] = useState<KnowledgeTab>("diseases");
   const [speciesFilter, setSpeciesFilter] = useState<SpeciesFilter>("all");
@@ -134,7 +140,7 @@ export function KnowledgeBasePage() {
       setError("");
 
       try {
-        const result = await knowledgeService.getKnowledgeBase();
+        const result = await knowledgeService.getKnowledgeBase(isAdmin);
 
         if (isMounted) {
           setData(result);
@@ -155,7 +161,7 @@ export function KnowledgeBasePage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -163,15 +169,21 @@ export function KnowledgeBasePage() {
 
   const filteredDiseases = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return (data?.diseases ?? []).filter(
-      (disease) =>
-        matchesSpecies(disease.species_id, speciesFilter) &&
-        (!normalizedQuery ||
-          [disease.name, disease.description, speciesName(disease.species_id)]
-            .filter(Boolean)
-            .some((value) => value!.toLowerCase().includes(normalizedQuery)))
-    );
-  }, [data?.diseases, query, speciesFilter]);
+    return (data?.diseases ?? [])
+      .filter(
+        (disease) =>
+          matchesSpecies(disease.species_id, speciesFilter) &&
+          (!normalizedQuery ||
+            [disease.name, disease.description, speciesName(disease.species_id)]
+              .filter(Boolean)
+              .some((value) => value!.toLowerCase().includes(normalizedQuery)))
+      )
+      .sort((left, right) => {
+        const leftRules = (data?.rules ?? []).filter((rule) => rule.is_active && rule.disease_id === left.id).length;
+        const rightRules = (data?.rules ?? []).filter((rule) => rule.is_active && rule.disease_id === right.id).length;
+        return rightRules - leftRules || left.species_id - right.species_id || left.name.localeCompare(right.name);
+      });
+  }, [data?.diseases, data?.rules, query, speciesFilter]);
 
   const filteredSymptoms = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -243,8 +255,8 @@ export function KnowledgeBasePage() {
               />
             </label>
             <SpeciesButton active={speciesFilter === "all"} label="Todos" onClick={() => setSpeciesFilter("all")} />
-            <SpeciesButton active={speciesFilter === "dog"} icon={Dog} label="Canino" onClick={() => setSpeciesFilter("dog")} />
-            <SpeciesButton active={speciesFilter === "cat"} icon={Cat} label="Felino" onClick={() => setSpeciesFilter("cat")} />
+            <SpeciesButton active={speciesFilter === "dog"} icon={Dog} label="Perro" onClick={() => setSpeciesFilter("dog")} />
+            <SpeciesButton active={speciesFilter === "cat"} icon={Cat} label="Gato" onClick={() => setSpeciesFilter("cat")} />
           </div>
         </div>
 
@@ -260,7 +272,7 @@ export function KnowledgeBasePage() {
 
       <Card className="overflow-hidden">
         <div className="grid grid-cols-2 md:grid-cols-5">
-          {tabs.map((tab) => (
+          {tabs.filter((tab) => isAdmin || tab.id !== "rules").map((tab) => (
             <button
               className={cn(
                 "min-h-14 border-b-2 px-4 text-sm font-extrabold transition",
@@ -296,8 +308,10 @@ export function KnowledgeBasePage() {
                       <span className="min-w-0 flex-1">
                         <span className="block font-extrabold text-[#172554]">{disease.name}</span>
                         <span className="mt-1 block text-xs font-semibold text-slate-500">
-                          {speciesName(disease.species_id)} · {filteredSymptoms.filter((s) => s.species_id === disease.species_id).length} sintomas ·{" "}
-                          {filteredRules.filter((rule) => rule.disease_id === disease.id).length} reglas
+                          {speciesName(disease.species_id)} / {filteredSymptoms.filter((item) => item.species_id === disease.species_id).length} sintomas / {(() => {
+                            const count = filteredRules.filter((rule) => rule.is_active && rule.disease_id === disease.id).length;
+                            return count ? `${count} reglas IF-THEN` : "Perfil Bayes sin regla directa";
+                          })()}
                         </span>
                       </span>
                     </ListButton>
@@ -342,7 +356,7 @@ export function KnowledgeBasePage() {
                       <span className="min-w-0 flex-1">
                         <span className="block font-extrabold text-[#172554]">{variable.name}</span>
                         <span className="mt-1 block text-xs font-semibold text-slate-500">
-                          {variable.data_type} · {speciesName(variable.species_id)} · {variableRange(variable)}
+                          {variable.data_type} Â· {speciesName(variable.species_id)} Â· {variableRange(variable)}
                         </span>
                       </span>
                     </ListButton>
@@ -369,7 +383,7 @@ export function KnowledgeBasePage() {
                           {rule.code} - {rule.name}
                         </span>
                         <span className="mt-1 block text-xs font-semibold text-slate-500">
-                          {rule.conditions.length} condiciones · {rule.is_active ? "Activa" : "Inactiva"}
+                          {rule.conditions.length} condiciones Â· {rule.is_active ? "Activa" : "Inactiva"}
                         </span>
                       </span>
                     </ListButton>
@@ -589,7 +603,7 @@ function RuleDetail({ rule, diseases }: { rule: Rule; diseases: Disease[] }) {
       <div className="mb-6 flex flex-wrap gap-3">
         {rule.conditions.map((condition) => (
           <span className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-extrabold text-slate-600" key={condition.id}>
-            {condition.variable_key} {condition.operator} {String(condition.expected_value)}
+            {condition.variable_key} {condition.operator} {String(condition.expected_value)}{(condition.logical_group ?? 1) > 1 ? ` · alternativa ${condition.logical_group}` : ""}
           </span>
         ))}
       </div>
@@ -695,7 +709,7 @@ function RiskLevelsView({
               </tr>
             )}
           />
-          <InfoNote text="La clasificacion de riesgo considera una logica acumulativa: un paciente puede cambiar de nivel conforme se registren mas datos clinicos." />
+          <InfoNote text="La clasificación depende del porcentaje calculado: bajo de 0% a menos de 40%, moderado de 40% a menos de 70% y alto de 70% a 100%. Las reglas IF–THEN activadas muestran las condiciones clínicas que sustentan ese cálculo." />
         </Card>
       </div>
     </div>

@@ -36,7 +36,7 @@ function validateLogin(email: string, password: string): LoginErrors {
   }
 
   if (password.length < 8) {
-    errors.password = "La contrasena debe tener al menos 8 caracteres.";
+    errors.password = "La contraseña debe tener al menos 8 caracteres.";
   }
 
   return errors;
@@ -150,7 +150,7 @@ export function LoginPage() {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-extrabold text-slate-700">Contrasena</span>
+                <span className="mb-2 block text-sm font-extrabold text-slate-700">Contraseña</span>
                 <span className="relative block">
                   <Lock className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={19} />
                   <input
@@ -160,7 +160,7 @@ export function LoginPage() {
                       setPassword(event.target.value);
                       setErrors((current) => ({ ...current, password: undefined }));
                     }}
-                    placeholder="Ingresa tu contrasena"
+                    placeholder="Ingresa tu contraseña"
                     type={showPassword ? "text" : "password"}
                     value={password}
                   />
@@ -168,7 +168,7 @@ export function LoginPage() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 transition hover:bg-slate-100"
                     onClick={() => setShowPassword((current) => !current)}
                     type="button"
-                    aria-label={showPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                   >
                     {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
                   </button>
@@ -191,7 +191,7 @@ export function LoginPage() {
               }}
               type="button"
             >
-              ¿Olvidaste tu contrasena?
+              ¿Olvidaste tu contraseña?
             </button>
           </>
         )}

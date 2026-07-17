@@ -1,0 +1,144 @@
+@startuml
+title D2 - Diagrama de Clases: Base de Conocimiento Clínica
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+
+package "Base de Conocimiento" {
+
+  class Species {
+    +id: int
+    +name: string
+    +description: string
+    +is_active: bool
+  }
+
+  class Disease {
+    +id: int
+    +name: string
+    +description: string
+    +species_id: int
+    +is_active: bool
+  }
+
+  class Symptom {
+    +id: int
+    +name: string
+    +key: string
+    +species_id: int
+    +is_active: bool
+  }
+
+  class ClinicalVariable {
+    +id: int
+    +name: string
+    +key: string
+    +unit: string
+    +species_id: int
+    +is_active: bool
+  }
+
+  class FactDefinition {
+    +id: int
+    +fact_key: string
+    +label: string
+    +fact_type: string
+    +species_id: int
+    +symptom_id: int
+    +clinical_variable_id: int
+    +is_active: bool
+  }
+
+  class ClinicalProbability {
+    +id: int
+    +disease_id: int
+    +symptom_id: int
+    +clinical_variable_id: int
+    +fact_key: string
+    +probability: float
+  }
+
+  class RiskLevel {
+    +id: int
+    +name: string
+    +description: string
+    +priority: int
+  }
+
+  class InferenceRule {
+    +id: int
+    +name: string
+    +description: string
+    +disease_id: int
+    +risk_level_id: int
+    +weight: float
+    +is_active: bool
+  }
+
+  class RuleCondition {
+    +id: int
+    +rule_id: int
+    +fact_key: string
+    +operator: string
+    +expected_value: string
+  }
+
+  class KnowledgeSource {
+    +id: int
+    +title: string
+    +authors: string
+    +year: int
+    +source_type: string
+    +url: string
+  }
+
+  class RuleReference {
+    +id: int
+    +rule_id: int
+    +knowledge_source_id: int
+    +note: string
+  }
+}
+
+Species "1" -- "0..*" Disease : restringe
+Species "1" -- "0..*" Symptom : define
+Species "1" -- "0..*" ClinicalVariable : define
+Species "1" -- "0..*" FactDefinition : valida
+
+Disease "1" -- "0..*" InferenceRule : posee reglas
+Disease "1" -- "0..*" ClinicalProbability : usa probabilidades
+
+Symptom "0..1" -- "0..*" FactDefinition : puede originar
+ClinicalVariable "0..1" -- "0..*" FactDefinition : puede originar
+
+Symptom "0..1" -- "0..*" ClinicalProbability : evidencia
+ClinicalVariable "0..1" -- "0..*" ClinicalProbability : evidencia
+
+RiskLevel "1" -- "0..*" InferenceRule : clasifica
+InferenceRule "1" -- "1..*" RuleCondition : compuesta por
+
+KnowledgeSource "1" -- "0..*" RuleReference : sustenta
+InferenceRule "1" -- "0..*" RuleReference : referenciada por
+
+note right of FactDefinition
+Catálogo maestro de hechos clínicos.
+Permite validar síntomas y variables
+según la especie del paciente.
+end note
+
+note right of InferenceRule
+Representa una regla IF-THEN
+del conocimiento clínico.
+Cada regla apunta a una enfermedad
+y a un nivel de riesgo.
+end note
+
+note bottom of ClinicalProbability
+Almacena las probabilidades
+P(evidencia | enfermedad)
+utilizadas por Naive Bayes.
+end note
+
+@enduml

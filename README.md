@@ -1,73 +1,115 @@
-# React + TypeScript + Vite
+# Frontend OE3 – Sistema de Inferencia Veterinaria
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación web desarrollada con React, Vite y TypeScript para el OE3 de la tesis. Consume la API REST del proyecto `Backend-Tesis` y permite registrar información clínica veterinaria, ejecutar el motor híbrido de reglas IF–THEN + Bayes y consultar resultados trazables.
 
-Currently, two official plugins are available:
+## Funcionalidades
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Autenticación mediante JWT y protección de rutas privadas.
+- Recuperacion de contraseña mediante token temporal y envio EmailJS desde React.
+- Gestión de propietarios y pacientes.
+- Consumo de catálogos reales: especies, razas, síntomas y variables clínicas.
+- Registro de evaluaciones clínicas con *facts* estructurados.
+- Procesamiento de inferencia y consulta de resultados persistidos.
+- Visualización de probabilidades, niveles de riesgo y reglas activadas.
+- Historial clínico por paciente, con búsqueda y filtros.
+- Consulta de la base de conocimiento y administración de usuarios para el rol administrador.
 
-## React Compiler
+## Tecnologías
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19
+- TypeScript
+- Vite
+- React Router
+- Axios
+- Tailwind CSS
+- Lucide React
 
-## Expanding the ESLint configuration
+## Requisitos
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js 20 o superior.
+- npm 10 o superior.
+- Backend OE3 iniciado y accesible. Por defecto, el frontend espera la API en `http://127.0.0.1:8000`.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Instalación y ejecución local
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Desde la carpeta `Frontend-Tesis-New`:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```powershell
+npm install
+Copy-Item .env.example .env
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+La aplicación estará disponible normalmente en `http://localhost:5173`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Antes de iniciar sesión, levante el backend desde la carpeta `Backend-Tesis`. La documentación interactiva de la API queda disponible en `http://127.0.0.1:8000/docs` cuando el backend se ejecuta localmente.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Variables de entorno
+
+Crear un archivo `.env` a partir de `.env.example`:
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_EMAILJS_SERVICE_ID=<SERVICE_ID_EMAILJS>
+VITE_EMAILJS_TEMPLATE_ID=<TEMPLATE_ID_EMAILJS>
+VITE_EMAILJS_PUBLIC_KEY=<PUBLIC_KEY_EMAILJS>
 ```
+
+Para otra instancia del backend, cambie `VITE_API_BASE_URL`. Para recuperacion de contraseña, configure EmailJS con un template que reciba `to_email`, `to_name`, `reset_url`, `verification_code`, `reset_token`, `expires_minutes` y `app_name`. No incluya tokens JWT, contraseñas ni claves privadas en variables expuestas con el prefijo `VITE_`.
+
+## Comandos disponibles
+
+```powershell
+npm run dev     # servidor de desarrollo
+npm run build   # validación TypeScript y compilación de producción
+npm run lint    # análisis estático con ESLint
+npm run preview # vista local de la compilación de producción
+```
+
+## Flujo clínico OE3
+
+1. Iniciar sesión para obtener y utilizar el JWT.
+2. Registrar o seleccionar un propietario.
+3. Registrar un paciente usando identificadores reales de propietario, especie y raza.
+4. Crear una evaluación e ingresar síntomas y variables clínicas como *facts*.
+5. Guardar la evaluación y ejecutar el procesamiento de inferencia.
+6. Consultar los resultados: enfermedad sugerida, probabilidad, nivel de riesgo y reglas activadas.
+7. Revisar el historial clínico del paciente.
+
+## Integración con API
+
+El cliente Axios centralizado agrega automáticamente el encabezado `Authorization: Bearer <token>` cuando existe una sesión. Los servicios del frontend consumen endpoints reales de autenticación, propietarios, pacientes, catálogos, evaluaciones, resultados, historial, conocimiento y usuarios.
+
+Los payloads clínicos se construyen desde los catálogos obtenidos por API; no se usan datos simulados para propietarios, pacientes ni *facts* de evaluación.
+
+## Validación manual sugerida
+
+1. Abrir DevTools → **Network**.
+2. Iniciar sesión y confirmar la respuesta de `POST /api/v1/auth/login`.
+3. Crear un propietario y un paciente; verificar los `POST` correspondientes.
+4. Registrar una evaluación con *facts* y confirmar `POST /api/v1/evaluations`.
+5. Procesarla mediante `POST /api/v1/evaluaciones/{id}/procesar`.
+6. Verificar la consulta de resultados, reglas activadas e historial.
+
+Estas capturas y los payloads/respuestas de Network constituyen evidencia reproducible para el OE3.
+
+## Estructura principal
+
+```text
+src/
+  app/          # Router y composición principal
+  components/   # Componentes reutilizables y módulos clínicos
+  pages/        # Vistas del sistema
+  services/     # Cliente API y servicios por dominio
+  hooks/        # Hooks de autenticación y evaluación
+  types/        # Tipos TypeScript alineados con la API
+  utils/        # Utilidades de almacenamiento y presentación
+```
+
+## Alcance actual
+
+La pantalla de preferencias de interfaz está conservada en el código, pero su pestaña está temporalmente oculta. El tema oscuro y la recuperación de contraseña por correo no forman parte del alcance actual de esta entrega.
+
+## Conclusión académica
+
+El frontend implementa el flujo clínico completo del OE3, desde la autenticación y el registro de datos normalizados hasta la inferencia, resultados explicables e historial clínico. La comunicación con la API REST permite mantener trazabilidad de las evaluaciones y de las reglas activadas.

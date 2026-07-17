@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AlertMessage } from "../common/AlertMessage";
 import { Button } from "../common/Button";
 import { authService } from "../../services/auth.service";
+import { emailJsService } from "../../services/emailjs.service";
 
 type ForgotPasswordFormProps = {
   onBack: () => void;
@@ -14,10 +15,14 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function getErrorMessage(error: unknown) {
   if (error && typeof error === "object" && "response" in error) {
     const response = (error as { response?: { data?: { detail?: string } } }).response;
-    return response?.data?.detail ?? "No fue posible enviar las instrucciones.";
+    return response?.data?.detail ?? "No fue posible enviar el codigo de recuperacion.";
   }
 
-  return "No fue posible enviar las instrucciones.";
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "No fue posible enviar el codigo de recuperacion.";
 }
 
 export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
@@ -31,7 +36,8 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
     setError("");
     setSuccess("");
 
-    if (!emailPattern.test(email.trim())) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!emailPattern.test(normalizedEmail)) {
       setError("Ingresa un correo electronico valido.");
       return;
     }
@@ -39,8 +45,13 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
     setIsSubmitting(true);
 
     try {
-      await authService.forgotPassword({ email: email.trim() });
-      setSuccess("Si el correo existe, recibiras instrucciones de recuperacion.");
+      const response = await authService.forgotPassword({ email: normalizedEmail });
+
+      if (response.reset_email) {
+        await emailJsService.sendPasswordReset(response.reset_email);
+      }
+
+      setSuccess(response.message);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -51,9 +62,9 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
   return (
     <div>
       <div className="mb-6 text-center">
-        <h2 className="text-2xl font-extrabold text-[#172554] sm:text-[1.7rem]">Recuperar contrasena</h2>
+        <h2 className="text-2xl font-extrabold text-[#172554] sm:text-[1.7rem]">Recuperar contraseña</h2>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-          Ingresa tu correo y te enviaremos instrucciones si existe una cuenta asociada.
+          Ingresa tu correo y enviaremos un código temporal si existe una cuenta asociada.
         </p>
       </div>
 
@@ -76,7 +87,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
         </label>
 
         <Button className="h-[3.25rem] w-full rounded-lg text-base shadow-[0_12px_24px_rgba(70,53,211,0.20)]" disabled={isSubmitting} icon={isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />} type="submit">
-          {isSubmitting ? "Enviando..." : "Enviar instrucciones"}
+          {isSubmitting ? "Enviando..." : "Enviar código de recuperación"}
         </Button>
       </form>
 
@@ -85,14 +96,14 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
         onClick={onBack}
         type="button"
       >
-        Volver al inicio de sesion
+        Volver al inicio de sesión
       </button>
 
       <div className="mt-5 flex items-start gap-3 border-t border-slate-100 pt-5 text-sm font-semibold leading-6 text-slate-500">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-violet-50 text-[#4635D3]">
           <Info size={18} />
         </span>
-        <span>Si el correo esta registrado, se enviaran instrucciones de recuperacion.</span>
+        <span>El código temporal no expone la contraseña actual y vence en 15 minutos.</span>
       </div>
     </div>
   );

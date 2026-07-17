@@ -1,6 +1,7 @@
 import type {
   CatalogItem,
   ClinicalVariable,
+  FactDefinition,
   Evaluation,
   EvaluationPayload,
   PersistedInferenceResult,
@@ -46,6 +47,32 @@ export const evaluationService = {
 
   async listClinicalVariables() {
     const { data } = await api.get<ClinicalVariable[]>("/api/v1/clinical-variables");
+    return data;
+  },
+
+  async getEvaluationFacts(speciesId: number) {
+    const { data } = await api.get<FactDefinition[]>("/api/v1/evaluation-facts", {
+      params: { species_id: speciesId },
+    });
+    return data;
+  },
+
+  async getEvaluationSymptoms(speciesId: number) {
+    const { data } = await api.get<FactDefinition[]>("/api/v1/evaluation-symptoms", {
+      params: { species_id: speciesId },
+    });
+    return data;
+  },
+
+  async getEvaluationClinicalVariables(speciesId: number) {
+    const { data } = await api.get<FactDefinition[]>("/api/v1/evaluation-clinical-variables", {
+      params: { species_id: speciesId },
+    });
+    return data;
+  },
+
+  async listActivatedRules(resultId: number) {
+    const { data } = await api.get(`/api/v1/results/${resultId}/activated-rules`);
     return data;
   },
 };

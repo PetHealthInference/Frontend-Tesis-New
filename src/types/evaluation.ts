@@ -49,6 +49,18 @@ export type ClinicalVariable = {
   is_active: boolean;
 };
 
+export type FactDefinition = {
+  id: number;
+  fact_key: string;
+  display_name: string;
+  source_type: ClinicalFactIn["source_type"];
+  data_type: string;
+  unit?: string | null;
+  allowed_values?: Array<string | number | boolean> | null;
+  species_id?: number | null;
+  is_active: boolean;
+};
+
 export type ProcessedResult = {
   enfermedad: string;
   probabilidad?: number | null;
@@ -69,6 +81,8 @@ export type PersistedActivatedRule = {
   rule_id: number;
   fulfilled_conditions: unknown;
   justification: string;
+  rule_code?: string | null;
+  rule_version?: number | null;
 };
 
 export type PersistedInferenceResult = {
